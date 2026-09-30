@@ -1,0 +1,1 @@
+- [Render and Vercel session auth](render-vercel-sessions.md) — keep the browser API same-origin through the Vercel rewrite so secure session cookies remain first-party.

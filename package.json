@@ -2,9 +2,24 @@
   "name": "haafedk-icloud-premium",
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "dev": "node server.js",
-    "start": "node server.js",
-    "build": "echo 'Build OK'"
+    "dev": "node scripts/migrate.js && node scripts/create-admin.js && node server.js",
+    "start": "node scripts/migrate.js && node scripts/create-admin.js && node server.js",
+    "build": "node scripts/build-frontend.js",
+    "db:migrate": "node scripts/migrate.js",
+    "admin:create": "node scripts/create-admin.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "connect-pg-simple": "^10.0.0",
+    "dotenv": "^18.0.5",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "express-session": "^1.19.0",
+    "helmet": "^8.3.0",
+    "pg": "^8.23.1"
   }
 }

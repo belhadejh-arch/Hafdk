@@ -1,74 +1,7 @@
 import { supportedDevices } from '/devicesData.js';
 
-let CURRENT_USERS = [
-  {
-    id: "usr_admin",
-    username: "admin",
-    email: "admin@haafedk.com",
-    password: "admin123",
-    role: "ADMIN",
-    phone: "0774148015",
-    fullName: "مدير المنصة",
-    beneficiaryType: "لنفسي",
-    subscriptionPlan: "YEAR",
-    status: "ACTIVE",
-    registrationDate: "2026-09-01",
-    startDate: "2026-09-01",
-    endDate: "2027-09-01",
-    licenseKey: "HFD-ADMIN-MASTER-KEY",
-    receiptFileName: null
-  },
-  {
-    id: "usr_001",
-    username: "belyamani_pro",
-    email: "gocourse1@gmail.com",
-    password: "password123",
-    role: "USER",
-    phone: "0774148015",
-    fullName: "إبراهيم بليماني",
-    beneficiaryType: "لنفسي",
-    subscriptionPlan: "MONTHLY 6",
-    status: "INACTIVE",
-    registrationDate: "2026-09-30",
-    startDate: null,
-    endDate: null,
-    licenseKey: null,
-    receiptFileName: null
-  },
-  {
-    id: "usr_002",
-    username: "karim_apple",
-    email: "karim.tech@gmail.com",
-    password: "karimSecure2026",
-    role: "USER",
-    phone: "0550123456",
-    fullName: "كريم منصوري",
-    beneficiaryType: "لنفسي",
-    subscriptionPlan: "YEAR",
-    status: "ACTIVE",
-    registrationDate: "2026-08-15",
-    startDate: "2026-08-15",
-    endDate: "2027-08-15",
-    licenseKey: "HFD-PREM-9984-KLM3-2026",
-    receiptFileName: "recu_baridi_15000.png"
-  },
-  {
-    id: "usr_003",
-    username: "samir_alger",
-    email: "samir_gsm@yahoo.fr",
-    password: "gsmSamir!99",
-    role: "USER",
-    phone: "0661987654",
-    fullName: "سمير بوجمعة",
-    beneficiaryType: "شخص آخر",
-    subscriptionPlan: "MONTHLY 6",
-    status: "PENDING",
-    registrationDate: "2026-09-29",
-    receiptFileName: "recu_ccp_8000dz.jpg"
-  }
-];
-
-let currentUser = CURRENT_USERS[1]; // default regular user
+let CURRENT_USERS = [];
+let currentUser = null;
 let isArabic = true;
 let isDarkMode = true;
 let activeTab = 'home';
@@ -120,6 +53,9 @@ window.setTab = function(tab) {
   isSidebarOpen = false;
   window.scrollTo({ top: 0, behavior: 'smooth' });
   render();
+  if (tab === 'admin' && currentUser?.role === 'ADMIN') {
+    refreshAdminUsers().catch((error) => showToast(error.message));
+  }
 };
 
 window.copyToClipboard = function(text, label) {
@@ -128,127 +64,140 @@ window.copyToClipboard = function(text, label) {
   });
 };
 
-window.handleLogin = function(username, password) {
-  const u = CURRENT_USERS.find(x => 
-    (x.username.toLowerCase() === username.toLowerCase().trim() || 
-     x.email.toLowerCase() === username.toLowerCase().trim()) && 
-    x.password === password
-  );
-  if (u) {
-    currentUser = u;
-    showAuthModal = false;
-    if (u.role === 'ADMIN') {
-      activeTab = 'admin';
-      showToast(isArabic ? 'تم الدخول كمدير للنظام (Admin)' : 'Logged in as Administrator');
-    } else {
-      activeTab = 'dashboard';
-      showToast((isArabic ? 'مرحباً بك ' : 'Welcome ') + u.username);
+async function apiRequest(url, options = {}) {
+  const response = await fetch(url, {
+    credentials: 'same-origin',
+    ...options,
+    headers: {
+      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+      ...options.headers
     }
-  } else {
-    alert(isArabic ? 'اسم المستخدم أو كلمة السر غير صحيحة' : 'Invalid credentials');
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+  return data;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[character]);
+}
+
+async function refreshAdminUsers() {
+  const { users } = await apiRequest('/api/admin/users');
+  CURRENT_USERS = users;
+  render();
+}
+
+async function restoreSession() {
+  try {
+    const { user } = await apiRequest('/api/auth/me');
+    currentUser = user;
+    if (user.role === 'ADMIN') {
+      const result = await apiRequest('/api/admin/users');
+      CURRENT_USERS = result.users;
+    }
+  } catch {
+    currentUser = null;
+  }
+  render();
+}
+
+window.handleLogin = async function(username, password) {
+  try {
+    const { user } = await apiRequest('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password })
+    });
+    currentUser = user;
+    showAuthModal = false;
+    activeTab = user.role === 'ADMIN' ? 'admin' : 'dashboard';
+    if (user.role === 'ADMIN') await refreshAdminUsers();
+    showToast(user.role === 'ADMIN'
+      ? (isArabic ? 'تم تسجيل الدخول كمدير' : 'Logged in as administrator')
+      : (isArabic ? 'مرحباً بك ' : 'Welcome ') + user.username);
+  } catch (error) {
+    alert(error.message);
   }
 };
 
-window.handleRegister = function(username, email, password) {
-  if (!username || !email || !password) {
-    alert(isArabic ? 'يرجى ملء جميع الحقول' : 'Please fill all fields');
-    return;
+window.handleRegister = async function(username, email, password) {
+  try {
+    const { user } = await apiRequest('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ username, email, password })
+    });
+    currentUser = user;
+    showAuthModal = false;
+    activeTab = 'dashboard';
+    showToast(isArabic ? 'تم إنشاء الحساب في حالة غير مفعل' : 'Account created as Inactive');
+  } catch (error) {
+    alert(error.message);
   }
-  const newAcc = {
-    id: 'usr_' + Date.now(),
-    username: username.trim(),
-    email: email.trim(),
-    password: password,
-    role: 'USER',
-    phone: '',
-    fullName: '',
-    beneficiaryType: 'لنفسي',
-    subscriptionPlan: 'MONTHLY 6',
-    status: 'INACTIVE',
-    registrationDate: new Date().toISOString().split('T')[0],
-    startDate: null,
-    endDate: null,
-    licenseKey: null,
-    receiptFileName: null
-  };
-  CURRENT_USERS.unshift(newAcc);
-  currentUser = newAcc;
-  showAuthModal = false;
-  activeTab = 'dashboard';
-  showToast(isArabic ? 'تم إنشاء الحساب في حالة غير مفعل' : 'Account created as Inactive');
 };
 
-window.handleLogout = function() {
+window.handleLogout = async function() {
+  try {
+    await apiRequest('/api/auth/logout', { method: 'POST' });
+  } catch {
+    // Clear the local view even if the session has already expired.
+  }
   currentUser = null;
+  CURRENT_USERS = [];
   activeTab = 'home';
   isSidebarOpen = false;
+  render();
   showToast(isArabic ? 'تم تسجيل الخروج بنجاح' : 'Logged out');
 };
 
-window.handleActivationSubmit = function(beneficiary, name, phone, plan, receiptName) {
+window.handleActivationSubmit = async function(beneficiary, name, phone, plan, receiptName) {
   if (!name || !phone) {
     alert(isArabic ? 'يرجى كتابة الاسم ورقم الهاتف' : 'Please enter name and phone');
     return;
   }
-  currentUser.beneficiaryType = beneficiary;
-  currentUser.fullName = name;
-  currentUser.phone = phone;
-  currentUser.subscriptionPlan = plan;
-  currentUser.receiptFileName = receiptName || 'recu_payment_' + Math.floor(Math.random() * 9000) + '.jpg';
-  currentUser.status = 'PENDING';
-  
-  const idx = CURRENT_USERS.findIndex(u => u.id === currentUser.id);
-  if (idx !== -1) CURRENT_USERS[idx] = { ...currentUser };
-
-  render();
-  showToast(isArabic ? 'طلبك تم رفعه وهو قيد المعالجة' : 'Request submitted for review');
-};
-
-window.adminActivate = function(userId, months) {
-  const u = CURRENT_USERS.find(x => x.id === userId);
-  if (!u) return;
-  const days = months === 6 ? 180 : 365;
-  const today = new Date().toISOString().split('T')[0];
-  const end = new Date();
-  end.setDate(end.getDate() + days);
-  
-  u.status = 'ACTIVE';
-  u.subscriptionPlan = months === 6 ? 'MONTHLY 6' : 'YEAR';
-  u.startDate = today;
-  u.endDate = end.toISOString().split('T')[0];
-  u.licenseKey = 'HFD-' + Math.floor(1000 + Math.random() * 9000) + '-PREM-' + Math.floor(1000 + Math.random() * 9000);
-  
-  if (currentUser && currentUser.id === u.id) {
-    currentUser = { ...u };
+  try {
+    const { user } = await apiRequest('/api/account/activation', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        beneficiaryType: beneficiary,
+        fullName: name,
+        phone,
+        subscriptionPlan: plan,
+        receiptFileName: receiptName || null
+      })
+    });
+    currentUser = user;
+    render();
+    showToast(isArabic ? 'تم حفظ طلب التفعيل للمراجعة' : 'Activation request saved for review');
+  } catch (error) {
+    alert(error.message);
   }
-  showToast((isArabic ? 'تم تفعيل حساب ' : 'Activated ') + u.username);
 };
 
-window.adminSuspend = function(userId) {
-  const u = CURRENT_USERS.find(x => x.id === userId);
-  if (!u) return;
-  u.status = 'SUSPENDED';
-  if (currentUser && currentUser.id === u.id) {
-    currentUser = { ...u };
+async function runAdminAction(userId, action, months = 6) {
+  try {
+    const { user } = await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ action, months })
+    });
+    if (currentUser?.id === user.id) currentUser = user;
+    await refreshAdminUsers();
+    showToast(action === 'suspend'
+      ? (isArabic ? 'تم إيقاف حساب ' : 'Suspended ')
+      : (isArabic ? 'تم تحديث حساب ' : 'Updated ') + user.username);
+  } catch (error) {
+    alert(error.message);
   }
-  showToast((isArabic ? 'تم توقيف حساب ' : 'Suspended ') + u.username);
-};
+}
 
-window.adminRenew = function(userId, days) {
-  const u = CURRENT_USERS.find(x => x.id === userId);
-  if (!u) return;
-  const today = new Date().toISOString().split('T')[0];
-  const end = new Date();
-  end.setDate(end.getDate() + days);
-  
-  u.status = 'ACTIVE';
-  u.startDate = today;
-  u.endDate = end.toISOString().split('T')[0];
-  if (currentUser && currentUser.id === u.id) {
-    currentUser = { ...u };
-  }
-  showToast((isArabic ? 'تم تجديد الاشتراك لـ ' : 'Renewed for ') + u.username);
-};
+window.adminActivate = (userId, months) => runAdminAction(userId, 'activate', months);
+window.adminSuspend = (userId) => runAdminAction(userId, 'suspend');
+window.adminRenew = (userId, days) => runAdminAction(userId, 'renew', days >= 365 ? 12 : 6);
 
 function render() {
   const app = document.getElementById('app');
@@ -344,7 +293,7 @@ function render() {
                 <span>${currentUser.username}</span>
                 ${isAdmin ? '<span class="bg-amber-500/20 text-amber-400 text-[10px] px-1.5 py-0.5 rounded font-black border border-amber-500/30">ADMIN</span>' : ''}
               </div>
-              <div class="text-[11px] text-slate-400 truncate max-w-[170px]">${currentUser.email}</div>
+              <div class="text-[11px] text-slate-400 truncate max-w-[170px]">${escapeHtml(currentUser.email)}</div>
             </div>
             <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${currentUser.status === 'ACTIVE' ? 'bg-emerald-500/20 text-emerald-400' : currentUser.status === 'PENDING' ? 'bg-amber-500/20 text-amber-400' : 'bg-rose-500/20 text-rose-400'}">
               ${isArabic ? (currentUser.status === 'ACTIVE' ? 'مفعل' : currentUser.status === 'PENDING' ? 'قيد المراجعة' : 'غير مفعل') : currentUser.status}
@@ -908,7 +857,7 @@ function renderDashboardScreen() {
           </div>
           <div>
             <h1 class="text-base font-extrabold text-white">${currentUser.username}</h1>
-            <div class="text-xs text-slate-400">${currentUser.email}</div>
+            <div class="text-xs text-slate-400">${escapeHtml(currentUser.email)}</div>
           </div>
         </div>
 
@@ -999,12 +948,12 @@ function renderDashboardScreen() {
 
             <div>
               <label class="block font-bold text-slate-300 mb-1">${isArabic ? 'الاسم واللقب' : 'Full Name'}</label>
-              <input type="text" name="fullName" required placeholder="${isArabic ? 'اكتب اسمك الكامل...' : 'Full name...'}" value="${currentUser.fullName || ''}" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white outline-none focus:border-sky-500">
+              <input type="text" name="fullName" required placeholder="${isArabic ? 'اكتب اسمك الكامل...' : 'Full name...'}" value="${escapeHtml(currentUser.fullName)}" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white outline-none focus:border-sky-500">
             </div>
 
             <div>
               <label class="block font-bold text-slate-300 mb-1">${isArabic ? 'رقم الهاتف' : 'Phone Number'}</label>
-              <input type="tel" name="phone" required placeholder="0774148015" value="${currentUser.phone || ''}" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white font-mono outline-none focus:border-sky-500">
+              <input type="tel" name="phone" required placeholder="0774148015" value="${escapeHtml(currentUser.phone)}" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white font-mono outline-none focus:border-sky-500">
             </div>
 
             <div>
@@ -1098,63 +1047,56 @@ function renderAdminScreen() {
             <span>🛡️</span>
             <span>${isArabic ? 'لوحة تحكم الأدمن' : 'Admin Control Panel'}</span>
           </div>
-          <p class="text-xs text-slate-400">${isArabic ? 'إدارة المستخدمين، كلمات السر، والتفعيل المباشر' : 'Manage users and credentials'}</p>
+          <p class="text-xs text-slate-400">${isArabic ? 'إدارة الحسابات والاشتراكات' : 'Manage accounts and subscriptions'}</p>
         </div>
         <div class="text-xs font-bold text-slate-300 bg-slate-800 px-3 py-1 rounded-lg">
           ${isArabic ? 'إجمالي الحسابات: ' : 'Total: '} ${CURRENT_USERS.length}
         </div>
       </div>
 
-      <!-- Users Cards List -->
       <div class="space-y-3">
-        ${CURRENT_USERS.map(u => `
+        ${CURRENT_USERS.length ? CURRENT_USERS.map(u => `
           <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-4 space-y-3 text-xs">
             <div class="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
               <div>
-                <span class="font-bold text-sm text-white">${u.username}</span>
-                <span class="text-slate-400 text-[11px] block">${u.email}</span>
+                <span class="font-bold text-sm text-white">${escapeHtml(u.username)}</span>
+                <span class="text-slate-400 text-[11px] block">${escapeHtml(u.email)}</span>
               </div>
               <span class="px-2 py-0.5 rounded text-[10px] font-black ${u.status === 'ACTIVE' ? 'bg-emerald-500/20 text-emerald-400' : u.status === 'PENDING' ? 'bg-amber-500/20 text-amber-400' : 'bg-rose-500/20 text-rose-400'}">
                 ${u.status}
               </span>
             </div>
 
-            <!-- Credentials & Data -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-950 p-2.5 rounded-lg font-mono">
-              <div>
-                <span class="text-slate-500 text-[10px] block font-sans">${isArabic ? 'كلمة السر:' : 'Pass:'}</span>
-                <span class="text-sky-400 font-bold">${u.password}</span>
-              </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-slate-950 p-2.5 rounded-lg font-mono">
               <div>
                 <span class="text-slate-500 text-[10px] block font-sans">${isArabic ? 'الهاتف:' : 'Phone:'}</span>
-                <span class="text-white">${u.phone || '—'}</span>
+                <span class="text-white">${escapeHtml(u.phone || '—')}</span>
               </div>
               <div>
                 <span class="text-slate-500 text-[10px] block font-sans">${isArabic ? 'الخطة:' : 'Plan:'}</span>
-                <span class="text-amber-400">${u.subscriptionPlan}</span>
+                <span class="text-amber-400">${escapeHtml(u.subscriptionPlan)}</span>
               </div>
               <div>
                 <span class="text-slate-500 text-[10px] block font-sans">${isArabic ? 'النوع:' : 'Type:'}</span>
-                <span class="text-slate-300">${u.beneficiaryType || 'لنفسي'}</span>
+                <span class="text-slate-300">${escapeHtml(u.beneficiaryType || 'لنفسي')}</span>
               </div>
             </div>
 
             ${u.startDate ? `
               <div class="text-[11px] text-emerald-400 font-bold bg-emerald-500/10 p-2 rounded">
-                ${isArabic ? 'الاشتراك:' : 'Period:'} ${u.startDate} ⬅ ${u.endDate}
+                ${isArabic ? 'الاشتراك:' : 'Period:'} ${escapeHtml(u.startDate)} ⬅ ${escapeHtml(u.endDate)}
               </div>
             ` : ''}
 
             ${u.receiptFileName ? `
               <div class="flex items-center justify-between bg-slate-800/50 p-2 rounded text-[11px]">
-                <span class="text-sky-400 font-bold">${isArabic ? 'وصل الدفع: ' : 'Receipt: '} ${u.receiptFileName}</span>
+                <span class="text-sky-400 font-bold">${isArabic ? 'وصل الدفع: ' : 'Receipt: '} ${escapeHtml(u.receiptFileName)}</span>
                 <button onclick="previewReceiptUser = CURRENT_USERS.find(x => x.id === '${u.id}'); render();" class="text-sky-400 font-bold underline">
                   ${isArabic ? 'معاينة' : 'View'}
                 </button>
               </div>
             ` : ''}
 
-            <!-- Admin Actions -->
             <div class="flex flex-wrap gap-2 pt-1 border-t border-slate-800">
               <button onclick="adminActivate('${u.id}', 6)" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-2.5 py-1.5 rounded text-[11px]">
                 ${isArabic ? 'تفعيل 6 أشهر' : 'Act 6M'}
@@ -1170,7 +1112,11 @@ function renderAdminScreen() {
               </button>
             </div>
           </div>
-        `).join('')}
+        `).join('') : `
+          <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-5 text-center text-sm text-slate-400">
+            ${isArabic ? 'لا توجد حسابات مسجلة بعد.' : 'No accounts have registered yet.'}
+          </div>
+        `}
       </div>
     </div>
   `;
@@ -1180,7 +1126,7 @@ function renderAccessDeniedScreen() {
   return `
     <div class="text-center py-20">
       <h2 class="text-lg font-bold text-rose-400 mb-2">${isArabic ? 'عفواً، الدخول إلى لوحة الأدمن متاح فقط للمدير' : 'Access Restricted to Administrators'}</h2>
-      <p class="text-xs text-slate-400 mb-4">${isArabic ? 'يرجى تسجيل الدخول بحساب الأدمن (admin / admin123)' : 'Please login with administrator credentials'}</p>
+      <p class="text-xs text-slate-400 mb-4">${isArabic ? 'سجّل الدخول باستخدام بيانات المدير التي أُنشئت على الخادم.' : 'Sign in with the administrator account created on the server.'}</p>
       <button onclick="showAuthModal = true; authIsRegister = false; render();" class="bg-sky-600 text-white font-bold px-4 py-2 rounded-xl text-xs">
         ${isArabic ? 'تسجيل الدخول' : 'Login'}
       </button>
@@ -1216,12 +1162,8 @@ function renderAuthModal() {
             🔐 يتم تفعيل الحساب بعد اتمام انشاء الحساب ثم الدفع و رفع وصل الدفع
           </div>
         ` : `
-          <!-- Hint for Admin Login -->
-          <div class="rounded-lg bg-slate-800/60 p-2 mb-3 text-[10px] text-slate-400 flex items-center justify-between">
-            <span>${isArabic ? 'حساب المدير: ' : 'Admin demo: '} <span class="font-mono text-amber-400">admin / admin123</span></span>
-            <button onclick="document.getElementById('authUsername').value='admin'; document.getElementById('authPassword').value='admin123';" class="text-sky-400 font-bold underline">
-              ${isArabic ? 'تعبئة' : 'Fill'}
-            </button>
+          <div class="rounded-lg bg-slate-800/60 p-2 mb-3 text-[10px] text-slate-400">
+            ${isArabic ? 'حساب المدير يُنشأ على الخادم ولا توجد بيانات دخول تجريبية.' : 'Use the administrator account configured on the server.'}
           </div>
         `}
 
@@ -1240,7 +1182,7 @@ function renderAuthModal() {
 
           <div>
             <label class="block font-bold text-slate-300 mb-1">${isArabic ? 'كلمة السر' : 'Password'}</label>
-            <input id="authPassword" type="password" name="password" required placeholder="••••••••" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white outline-none focus:border-sky-500">
+            <input id="authPassword" type="password" name="password" required ${authIsRegister ? 'minlength="12"' : ''} placeholder="••••••••" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white outline-none focus:border-sky-500">
           </div>
 
           <button type="submit" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl transition shadow-lg shadow-sky-600/30">
@@ -1260,10 +1202,10 @@ function renderReceiptModal() {
           ✕
         </button>
 
-        <h3 class="font-extrabold text-white text-sm">${isArabic ? 'معاينة الوصل: ' : 'Receipt: '} ${previewReceiptUser.username}</h3>
+        <h3 class="font-extrabold text-white text-sm">${isArabic ? 'معاينة الوصل: ' : 'Receipt: '} ${escapeHtml(previewReceiptUser.username)}</h3>
         
         <div class="rounded-xl border border-slate-800 bg-slate-950 p-5 text-center space-y-2">
-          <div class="font-mono font-bold text-sky-400">${previewReceiptUser.receiptFileName || 'recu.jpg'}</div>
+          <div class="font-mono font-bold text-sky-400">${escapeHtml(previewReceiptUser.receiptFileName || 'recu.jpg')}</div>
           <div class="text-emerald-400 font-bold">${isArabic ? 'المبلغ: ' : 'Amount: '} ${previewReceiptUser.subscriptionPlan.includes('YEAR') ? '15000 دج' : '8000 دج'}</div>
           <div class="text-slate-400">${isArabic ? 'تاريخ العملية: ' : 'Date: '} ${previewReceiptUser.registrationDate}</div>
         </div>
@@ -1277,3 +1219,4 @@ function renderReceiptModal() {
 }
 
 render();
+restoreSession();
