@@ -13,6 +13,30 @@ let authIsRegister = false;
 let toastMessage = null;
 let previewReceiptUser = null;
 
+const deviceCounts = Object.fromEntries(
+  ['iphone', 'ipad', 'ipod'].map((category) => [
+    category,
+    supportedDevices.filter((device) => device.category === category).length
+  ])
+);
+const totalSupportedDevices = supportedDevices.length;
+const patcherDownloadUrl = 'https://drive.google.com/uc?export=download&id=1y8YnlQYAtOmwea7RyKdagxEBeD3VTFTv';
+
+// Inline HTML handlers execute outside this ES module's lexical scope.
+Object.defineProperties(window, {
+  CURRENT_USERS: { configurable: true, get: () => CURRENT_USERS, set: (value) => { CURRENT_USERS = value; } },
+  currentUser: { configurable: true, get: () => currentUser, set: (value) => { currentUser = value; } },
+  isArabic: { configurable: true, get: () => isArabic, set: (value) => { isArabic = value; } },
+  isSidebarOpen: { configurable: true, get: () => isSidebarOpen, set: (value) => { isSidebarOpen = value; } },
+  selectedDeviceCategory: { configurable: true, get: () => selectedDeviceCategory, set: (value) => { selectedDeviceCategory = value; } },
+  searchQuery: { configurable: true, get: () => searchQuery, set: (value) => { searchQuery = value; } },
+  showAuthModal: { configurable: true, get: () => showAuthModal, set: (value) => { showAuthModal = value; } },
+  authIsRegister: { configurable: true, get: () => authIsRegister, set: (value) => { authIsRegister = value; } },
+  previewReceiptUser: { configurable: true, get: () => previewReceiptUser, set: (value) => { previewReceiptUser = value; } },
+  render: { configurable: true, value: render },
+  showToast: { configurable: true, value: showToast }
+});
+
 function showToast(msg) {
   toastMessage = msg;
   render();
@@ -234,12 +258,6 @@ function render() {
 
         <!-- Controls: Support + 3-dots Menu Button -->
         <div class="flex items-center space-x-2 rtl:space-x-reverse">
-          <!-- WhatsApp Support -->
-          <a href="https://wa.me/213774148015" target="_blank" class="flex items-center space-x-1.5 rtl:space-x-reverse bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold hover:bg-emerald-500/25 transition">
-            <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.007c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86.173.086.275.072.376-.044.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.043.072.043.419-.101.824z"/></svg>
-            <span class="text-[11px] sm:text-xs">0774148015</span>
-          </a>
-
           <!-- User quick status if logged in -->
           ${currentUser ? `
             <button onclick="setTab('${isAdmin ? 'admin' : 'dashboard'}')" class="hidden sm:flex items-center space-x-1 rtl:space-x-reverse px-2.5 py-1 rounded-xl text-xs font-bold ${isAdmin ? 'bg-amber-500/15 border border-amber-500/40 text-amber-400' : currentUser.status === 'ACTIVE' ? 'bg-emerald-500/15 border border-emerald-500/40 text-emerald-400' : 'bg-rose-500/15 border border-rose-500/40 text-rose-400'}">
@@ -326,7 +344,7 @@ function render() {
             <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
             <span>${isArabic ? 'الأجهزة المدعومة' : 'Supported Devices'}</span>
           </div>
-          <span class="text-[10px] bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded-full font-black">131</span>
+          <span class="text-[10px] bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded-full font-black">${totalSupportedDevices}</span>
         </button>
 
         <button onclick="setTab('patcher')" class="w-full flex items-center space-x-3 rtl:space-x-reverse px-3.5 py-2.5 rounded-xl font-bold transition ${activeTab === 'patcher' ? 'bg-sky-600/15 text-sky-400 border border-sky-500/30' : 'text-slate-300 hover:bg-slate-800'}">
@@ -358,12 +376,8 @@ function render() {
         <div class="pt-3 pb-1 border-t ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}">
           <div class="text-[11px] font-bold text-slate-500 uppercase px-3.5 mb-1">${isArabic ? 'الدعم والتواصل' : 'Support'}</div>
           
-          <a href="https://wa.me/213774148015" target="_blank" class="w-full flex items-center space-x-3 rtl:space-x-reverse px-3.5 py-2 rounded-xl text-slate-300 hover:bg-slate-800 font-semibold text-xs">
-            <span class="text-emerald-400 font-mono font-bold">WhatsApp: 0774148015</span>
-          </a>
-
-          <a href="https://t.me/haafedk_premium" target="_blank" class="w-full flex items-center space-x-3 rtl:space-x-reverse px-3.5 py-2 rounded-xl text-slate-300 hover:bg-slate-800 font-semibold text-xs">
-            <span class="text-sky-400 font-bold">${isArabic ? 'قناة تيليجرام' : 'Telegram Channel'}</span>
+          <a href="https://wa.me/213774148015" target="_blank" rel="noopener noreferrer" class="w-full flex items-center space-x-3 rtl:space-x-reverse px-3.5 py-2 rounded-xl text-slate-300 hover:bg-slate-800 font-semibold text-xs">
+            <span class="text-emerald-400 font-bold">${isArabic ? 'تواصل مع الدعم الفني' : 'Contact Technical Support'}</span>
           </a>
         </div>
       </nav>
@@ -445,14 +459,10 @@ function renderHomeScreen() {
           </button>
         </div>
 
-        <!-- WhatsApp Support Direct Link -->
+        <!-- Technical Support Direct Link -->
         <div class="pt-4 border-t border-slate-800/80 flex justify-center">
-          <a href="https://wa.me/213774148015" target="_blank" class="w-full sm:w-auto inline-flex items-center justify-center space-x-2.5 rtl:space-x-reverse bg-emerald-500/10 border border-emerald-500/40 text-emerald-300 px-4 py-2 rounded-xl hover:bg-emerald-500/20 transition">
-            <svg class="w-4 h-4 text-emerald-400 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.007c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86.173.086.275.072.376-.044.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.043.072.043.419-.101.824z"/></svg>
-            <div class="text-right rtl:text-right ltr:text-left text-xs">
-              <span class="font-bold">${isArabic ? 'تواصل مع الدعم الفني واتساب:' : 'WhatsApp Support:'} </span>
-              <span class="font-mono font-black text-emerald-400">0774148015</span>
-            </div>
+          <a href="https://wa.me/213774148015" target="_blank" rel="noopener noreferrer" class="w-full sm:w-auto inline-flex items-center justify-center bg-emerald-500/10 border border-emerald-500/40 text-emerald-300 px-4 py-2 rounded-xl hover:bg-emerald-500/20 transition text-xs font-bold">
+            ${isArabic ? 'تواصل مع الدعم الفني' : 'Contact Technical Support'}
           </a>
         </div>
       </div>
@@ -495,7 +505,7 @@ function renderHomeScreen() {
           </div>
           <div>
             <div class="font-bold text-xs sm:text-sm text-white">${isArabic ? 'دعم فني مستمر 24/7' : '24/7 Support'}</div>
-            <div class="text-[11px] text-slate-400">${isArabic ? 'دائماً متاح — تيليجرام وتذاكر وواتساب' : 'Always Available — Telegram & WhatsApp'}</div>
+            <div class="text-[11px] text-slate-400">${isArabic ? 'دعم مباشر عبر واتساب وتذاكر الدعم' : 'Direct support through WhatsApp and support tickets'}</div>
           </div>
         </div>
 
@@ -540,12 +550,12 @@ function renderHomeScreen() {
       <!-- Supported Devices Teaser Card -->
       <div class="rounded-2xl border border-sky-500/30 bg-slate-900/70 p-5 sm:p-7 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <div class="text-xs font-bold text-sky-400 mb-1">${isArabic ? 'توافق كامل مع 131 جهاز' : '131 Devices Supported'}</div>
+          <div class="text-xs font-bold text-sky-400 mb-1">${isArabic ? 'الأجهزة المسجلة: ' + totalSupportedDevices : totalSupportedDevices + ' Devices Listed'}</div>
           <h2 class="text-xl font-black text-white">${isArabic ? 'الأجهزة المدعومة: توافق واسع مع موديلات Apple' : 'Supported Apple Devices'}</h2>
-          <p class="text-xs text-slate-400 mt-1 max-w-xl">${isArabic ? 'من iPhone 5s حتى iPhone 17 Pro Max وكافة موديلات iPad.' : 'From iPhone 5s to iPhone 17 Pro Max and all iPads.'}</p>
+          <p class="text-xs text-slate-400 mt-1 max-w-xl">${isArabic ? 'تصفح أجهزة iPhone و iPad و iPod المسجلة واستخدم أزرار التصنيف للعثور على جهازك.' : 'Browse the listed iPhone, iPad, and iPod devices using the category filters.'}</p>
         </div>
         <button onclick="setTab('devices')" class="w-full sm:w-auto bg-sky-600 hover:bg-sky-500 text-white font-bold px-5 py-2.5 rounded-xl transition text-xs sm:text-sm">
-          ${isArabic ? 'عرض كل الأجهزة (131)' : 'View All 131 Devices'}
+          ${isArabic ? 'عرض كل الأجهزة (' + totalSupportedDevices + ')' : 'View All ' + totalSupportedDevices + ' Devices'}
         </button>
       </div>
 
@@ -553,13 +563,13 @@ function renderHomeScreen() {
       <div class="rounded-2xl border border-amber-500/40 bg-slate-900/70 p-5 sm:p-7 space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <span class="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/30">${isArabic ? 'مجاني للأعضاء المفعّلين' : 'Free for Active Members'}</span>
+            <span class="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/30">${isArabic ? 'أداة باتشر متكاملة — مجانية لجميع أعضاء Haafedk Premium المفعّلين.' : 'A complete patcher, free for active Haafedk Premium members.'}</span>
             <h2 class="text-xl font-black text-white mt-1.5">Haafedk Patcher — ${isArabic ? 'أداة باتشر احترافية' : 'Pro Patcher'}</h2>
-            <p class="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">${isArabic ? 'أداة باتشر متكاملة لتطبيق الباتشات على ملفات النظام الخاصة بأجهزة iPhone و iPad بدون جيلبريك وبأمان 100%.' : 'An all-in-one patcher for iPhone and iPad system files.'}</p>
+            <p class="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">${isArabic ? 'تطبيق احترافي لتطبيق الباتشات على ملفات النظام لأجهزة iPhone و iPad، يتيح العمل على الملفات المختلفة بسهولة وأمان.' : 'Haafedk Patcher is a professional tool for applying patches to iPhone and iPad system files with ease and safety.'}</p>
           </div>
           <div class="flex gap-2">
-            <a href="https://t.me/haafedk_premium" target="_blank" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs">
-              ${isArabic ? 'تيليجرام' : 'Telegram'}
+            <a href="${patcherDownloadUrl}" target="_blank" rel="noopener noreferrer" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs">
+              ${isArabic ? 'تحميل مباشر' : 'Direct Download'}
             </a>
             <button onclick="setTab('patcher')" class="border border-slate-700 text-slate-300 font-bold px-3 py-2 rounded-xl text-xs">
               ${isArabic ? 'التفاصيل' : 'Details'}
@@ -638,13 +648,13 @@ function renderDevicesScreen(devices) {
     <div class="space-y-5">
       <div>
         <h1 class="text-2xl sm:text-3xl font-black text-white">${isArabic ? 'الأجهزة المدعومة' : 'Supported Devices'}</h1>
-        <p class="text-xs text-slate-400 mt-0.5">${isArabic ? 'يتم التحديث تلقائياً بعد كل تخطي مؤكد (131 جهاز)' : 'Automatically updated database (131 devices)'}</p>
+        <p class="text-xs text-slate-400 mt-0.5">${isArabic ? 'الأجهزة المدرجة حالياً: ' + totalSupportedDevices : 'Currently listed devices: ' + totalSupportedDevices}</p>
       </div>
 
       <!-- Stats -->
       <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 text-center text-xs">
         <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5">
-          <div class="font-black text-sky-400 text-base">131</div>
+          <div class="font-black text-sky-400 text-base">${totalSupportedDevices}</div>
           <div class="text-[10px] text-slate-400">${isArabic ? 'جهاز فريد' : 'Devices'}</div>
         </div>
         <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5">
@@ -652,11 +662,11 @@ function renderDevicesScreen(devices) {
           <div class="text-[10px] text-slate-400">${isArabic ? 'تفعيلات' : 'Total'}</div>
         </div>
         <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5">
-          <div class="font-black text-emerald-400 text-base">56</div>
+          <div class="font-black text-emerald-400 text-base">${deviceCounts.iphone}</div>
           <div class="text-[10px] text-slate-400">${isArabic ? 'آيفون' : 'iPhone'}</div>
         </div>
         <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5">
-          <div class="font-black text-sky-400 text-base">72</div>
+          <div class="font-black text-sky-400 text-base">${deviceCounts.ipad}</div>
           <div class="text-[10px] text-slate-400">${isArabic ? 'آيباد' : 'iPad'}</div>
         </div>
         <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5">
@@ -681,21 +691,21 @@ function renderDevicesScreen(devices) {
       <!-- Category Tabs -->
       <div class="flex items-center space-x-2 rtl:space-x-reverse overflow-x-auto pb-1 text-xs">
         <button onclick="selectedDeviceCategory = 'all'; render();" class="px-3.5 py-1.5 rounded-lg font-bold shrink-0 ${selectedDeviceCategory === 'all' ? 'bg-sky-600 text-white' : 'bg-slate-900 text-slate-400 border border-slate-800'}">
-          ${isArabic ? 'الكل (131)' : 'All (131)'}
+          ${isArabic ? 'الكل (' + totalSupportedDevices + ')' : 'All (' + totalSupportedDevices + ')'}
         </button>
         <button onclick="selectedDeviceCategory = 'iphone'; render();" class="px-3.5 py-1.5 rounded-lg font-bold shrink-0 ${selectedDeviceCategory === 'iphone' ? 'bg-sky-600 text-white' : 'bg-slate-900 text-slate-400 border border-slate-800'}">
-          ${isArabic ? 'آيفون (56)' : 'iPhone (56)'}
+          ${isArabic ? 'آيفون (' + deviceCounts.iphone + ')' : 'iPhone (' + deviceCounts.iphone + ')'}
         </button>
         <button onclick="selectedDeviceCategory = 'ipad'; render();" class="px-3.5 py-1.5 rounded-lg font-bold shrink-0 ${selectedDeviceCategory === 'ipad' ? 'bg-sky-600 text-white' : 'bg-slate-900 text-slate-400 border border-slate-800'}">
-          ${isArabic ? 'آيباد (72)' : 'iPad (72)'}
+          ${isArabic ? 'آيباد (' + deviceCounts.ipad + ')' : 'iPad (' + deviceCounts.ipad + ')'}
         </button>
         <button onclick="selectedDeviceCategory = 'ipod'; render();" class="px-3.5 py-1.5 rounded-lg font-bold shrink-0 ${selectedDeviceCategory === 'ipod' ? 'bg-sky-600 text-white' : 'bg-slate-900 text-slate-400 border border-slate-800'}">
-          ${isArabic ? 'آيبود تاتش (3)' : 'iPod (3)'}
+          ${isArabic ? 'آيبود تاتش (' + deviceCounts.ipod + ')' : 'iPod (' + deviceCounts.ipod + ')'}
         </button>
       </div>
 
       <!-- Device Count -->
-      <div class="text-[11px] text-sky-400 font-bold">${isArabic ? 'عرض ' + devices.length + ' من 131 جهاز' : 'Showing ' + devices.length + ' devices'}</div>
+      <div class="text-[11px] text-sky-400 font-bold">${isArabic ? 'عرض ' + devices.length + ' من ' + totalSupportedDevices + ' جهاز' : 'Showing ' + devices.length + ' of ' + totalSupportedDevices + ' devices'}</div>
 
       <!-- Cards Grid -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -738,29 +748,29 @@ function renderPatcherScreen() {
   return `
     <div class="space-y-6 max-w-4xl mx-auto">
       <div class="rounded-2xl border border-amber-500/30 bg-slate-900/60 p-5 sm:p-7 space-y-4">
-        <span class="px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold">${isArabic ? 'مجاني للأعضاء المفعّلين' : 'Free for Active Members'}</span>
+        <span class="px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold">${isArabic ? 'أداة باتشر متكاملة — مجانية لجميع أعضاء Haafedk Premium المفعّلين.' : 'A complete patcher, free for all active Haafedk Premium members.'}</span>
         <h1 class="text-2xl font-black text-white">Haafedk Patcher — ${isArabic ? 'أداة باتشر احترافية' : 'Pro Patcher'}</h1>
         <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
-          ${isArabic ? 'Haafedk Patcher هو أداة احترافية لتطبيق الباتشات على ملفات النظام الخاصة بأجهزة iPhone و iPad بكل سهولة وأمان بدون فقد للبيانات وبدون Jailbreak.' : 'Haafedk Patcher applies system patches safely without Jailbreak.'}
+          ${isArabic ? 'Haafedk Patcher أداة احترافية لتطبيق الباتشات على ملفات النظام الخاصة بأجهزة iPhone و iPad. تتيح لك العمل على الملفات المختلفة بكل سهولة وأمان.' : 'Haafedk Patcher is a professional tool for applying patches to iPhone and iPad system files, making it easy to work with different files safely.'}
+        </p>
+        <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+          ${isArabic ? 'الأداة مدمجة مع نظام Haafedk Premium ومجانية للأعضاء المفعّلين.' : 'The tool is integrated with Haafedk Premium and is free for active members.'}
         </p>
         <div class="flex flex-wrap gap-3 pt-1">
-          <a href="https://t.me/haafedk_premium" target="_blank" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs transition">
-            ${isArabic ? 'احصل عليه من تيليجرام' : 'Telegram'}
+          <a href="${patcherDownloadUrl}" target="_blank" rel="noopener noreferrer" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs transition">
+            ${isArabic ? 'تحميل Haafedk Patcher مباشرة' : 'Download Haafedk Patcher'}
           </a>
-          <button onclick="showToast(isArabic ? 'جارٍ بدء تحميل ملف الباتشر...' : 'Downloading Patcher...')" class="border border-sky-500 text-sky-400 px-5 py-2.5 rounded-xl text-xs font-bold transition">
-            ${isArabic ? 'تحميل مباشر' : 'Download'}
-          </button>
         </div>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
         ${[
-          'يعمل على جميع الأجهزة المدعومة',
-          'لا يحتاج إلى Jailbreak',
-          'نتائج فورية وسريعة',
-          'آمن 100% — بدون فقد بيانات',
-          'تحديثات دورية مجانية',
-          'دعم فني متواصل'
+          isArabic ? 'يعمل على جميع الأجهزة المدعومة' : 'Works with all supported devices',
+          isArabic ? 'لا يحتاج إلى Jailbreak' : 'No Jailbreak required',
+          isArabic ? 'نتائج فورية وسريعة' : 'Fast, immediate results',
+          isArabic ? 'آمن 100% — بدون فقد بيانات' : '100% safe — no data loss',
+          isArabic ? 'تحديثات دورية مجانية' : 'Free regular updates',
+          isArabic ? 'دعم فني متواصل' : 'Ongoing technical support'
         ].map(item => `
           <div class="flex items-center space-x-2.5 rtl:space-x-reverse rounded-xl border border-slate-800 bg-slate-900/50 p-3">
             <span class="text-emerald-400 font-bold">✓</span>
