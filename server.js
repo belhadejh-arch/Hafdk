@@ -25,6 +25,9 @@ const frontendOrigins = (process.env.FRONTEND_ORIGIN || '')
   .split(',')
   .map((origin) => normalizeOrigin(origin.trim()))
   .filter(Boolean);
+if (isProduction) {
+  frontendOrigins.push(normalizeOrigin('https://hafdk.vercel.app'));
+}
 const projectDir = path.dirname(fileURLToPath(import.meta.url));
 const poolOptions = { connectionString: process.env.DATABASE_URL };
 if (process.env.DB_SSL === 'true') {
