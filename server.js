@@ -13,9 +13,17 @@ import { Pool } from 'pg';
 const app = express();
 const port = Number(process.env.PORT || 5000);
 const isProduction = process.env.NODE_ENV === 'production';
+function normalizeOrigin(value) {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return '';
+  }
+}
+
 const frontendOrigins = (process.env.FRONTEND_ORIGIN || '')
   .split(',')
-  .map((origin) => origin.trim())
+  .map((origin) => normalizeOrigin(origin.trim()))
   .filter(Boolean);
 const projectDir = path.dirname(fileURLToPath(import.meta.url));
 const poolOptions = { connectionString: process.env.DATABASE_URL };
@@ -36,7 +44,7 @@ app.set('trust proxy', 1);
 app.disable('x-powered-by');
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 app.use((req, res, next) => {
-  const origin = req.get('origin');
+  const origin = normalizeOrigin(req.get('origin') || '');
   if (origin && ((isProduction && !frontendOrigins.includes(origin)) ||
       (!isProduction && frontendOrigins.length && !frontendOrigins.includes(origin)))) {
     return res.status(403).json({ error: 'Origin not allowed.' });
