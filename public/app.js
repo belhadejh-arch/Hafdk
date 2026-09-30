@@ -1171,11 +1171,7 @@ function renderAuthModal() {
             ⚠️ سيتم إنشاء الحساب في حالة غير مفعل<br>
             🔐 يتم تفعيل الحساب بعد اتمام انشاء الحساب ثم الدفع و رفع وصل الدفع
           </div>
-        ` : `
-          <div class="rounded-lg bg-slate-800/60 p-2 mb-3 text-[10px] text-slate-400">
-            ${isArabic ? 'حساب المدير يُنشأ على الخادم ولا توجد بيانات دخول تجريبية.' : 'Use the administrator account configured on the server.'}
-          </div>
-        `}
+        ` : ''}
 
         <form onsubmit="event.preventDefault(); authIsRegister ? handleRegister(this.username.value, this.email.value, this.password.value) : handleLogin(this.username.value, this.password.value);" class="space-y-3 text-xs">
           <div>
