@@ -1,0 +1,6 @@
+{
+  "name": "Haafedk iCloud Premium",
+  "description": "منصة Haafedk iCloud Premium لتخطي قفل iCloud للأجهزة المدعومة ولوحة تحكم المستخدم والأدمن",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
