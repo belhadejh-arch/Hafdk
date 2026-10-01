@@ -1,1 +1,2 @@
 - [Render and Vercel session auth](render-vercel-sessions.md) — keep the browser API same-origin through the Vercel rewrite so secure session cookies remain first-party.
+- [Password hashing cost](password-hash-cost.md) — keep bcrypt at 11 rounds unless production measurements justify changing the security/performance balance.

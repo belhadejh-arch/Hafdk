@@ -10,6 +10,7 @@ let selectedDeviceCategory = 'all';
 let searchQuery = '';
 let showAuthModal = false;
 let authIsRegister = false;
+let authIsSubmitting = false;
 let toastMessage = null;
 let previewReceiptUser = null;
 let selectedSubscriptionPlan = 'MONTHLY 6';
@@ -66,6 +67,20 @@ function showToast(msg) {
     toastMessage = null;
     render();
   }, 3500);
+}
+
+function setAuthSubmitting(isSubmitting) {
+  authIsSubmitting = isSubmitting;
+  const button = document.getElementById('authSubmitButton');
+  if (!button) return;
+  button.disabled = isSubmitting;
+  button.textContent = isSubmitting
+    ? (authIsRegister
+      ? (isArabic ? 'جارٍ إنشاء الحساب...' : 'Creating account...')
+      : (isArabic ? 'جارٍ تسجيل الدخول...' : 'Signing in...'))
+    : (authIsRegister
+      ? (isArabic ? 'إنشاء الحساب' : 'Register')
+      : (isArabic ? 'تسجيل الدخول' : 'Login'));
 }
 
 window.toggleLanguage = function() {
@@ -173,6 +188,8 @@ async function restoreSession() {
 }
 
 window.handleLogin = async function(username, password) {
+  if (authIsSubmitting) return;
+  setAuthSubmitting(true);
   try {
     const { user } = await apiRequest('/api/auth/login', {
       method: 'POST',
@@ -187,10 +204,14 @@ window.handleLogin = async function(username, password) {
       : (isArabic ? 'مرحباً بك ' : 'Welcome ') + user.username);
   } catch (error) {
     alert(error.message);
+  } finally {
+    setAuthSubmitting(false);
   }
 };
 
 window.handleRegister = async function(username, email, password) {
+  if (authIsSubmitting) return;
+  setAuthSubmitting(true);
   try {
     const { user } = await apiRequest('/api/auth/register', {
       method: 'POST',
@@ -199,9 +220,53 @@ window.handleRegister = async function(username, email, password) {
     currentUser = user;
     showAuthModal = false;
     activeTab = 'dashboard';
-    showToast(isArabic ? 'تم إنشاء الحساب في حالة غير مفعل' : 'Account created as Inactive');
+    showToast(isArabic ? 'تم إنشاء الحساب وتسجيل دخولك مباشرة' : 'Account created; you are now signed in');
   } catch (error) {
     alert(error.message);
+  } finally {
+    setAuthSubmitting(false);
+  }
+};
+
+window.uploadReceiptFile = async function(file) {
+  if (!file) return;
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+  if (!allowedTypes.includes(file.type)) {
+    alert(isArabic ? 'ارفع صورة JPG أو PNG أو WebP أو ملف PDF.' : 'Upload a JPG, PNG, WebP, or PDF file.');
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    alert(isArabic ? 'الحد الأقصى لحجم الوصل 5 ميغابايت.' : 'The receipt must be 5 MB or smaller.');
+    return;
+  }
+
+  const wrapper = document.getElementById('receiptInputWrapper');
+  const statusText = document.getElementById('receiptStatusText');
+  const submitButton = document.getElementById('activationSubmitButton');
+  if (wrapper) wrapper.dataset.uploading = 'true';
+  if (submitButton) submitButton.disabled = true;
+  if (statusText) statusText.innerText = isArabic ? 'جارٍ رفع الوصل...' : 'Uploading receipt...';
+
+  try {
+    const response = await fetch('/api/account/receipt', {
+      method: 'PUT',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': file.type,
+        'X-Receipt-Filename': encodeURIComponent(file.name)
+      },
+      body: file
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || `Upload failed (${response.status})`);
+    currentUser = data.user;
+    showToast(isArabic ? 'تم حفظ الوصل بأمان' : 'Receipt saved securely');
+  } catch (error) {
+    if (statusText) statusText.innerText = isArabic ? 'فشل رفع الوصل — حاول مرة أخرى' : 'Upload failed — try again';
+    alert(error.message);
+  } finally {
+    if (wrapper) wrapper.dataset.uploading = 'false';
+    if (submitButton) submitButton.disabled = false;
   }
 };
 
@@ -222,6 +287,10 @@ window.handleLogout = async function() {
 window.handleActivationSubmit = async function(beneficiary, name, phone, plan, receiptName) {
   if (!name || !phone) {
     alert(isArabic ? 'يرجى كتابة الاسم ورقم الهاتف' : 'Please enter name and phone');
+    return;
+  }
+  if (document.getElementById('receiptInputWrapper')?.dataset.uploading === 'true') {
+    alert(isArabic ? 'انتظر حتى يكتمل رفع الوصل.' : 'Wait for the receipt upload to finish.');
     return;
   }
   try {
@@ -261,6 +330,14 @@ async function runAdminAction(userId, action, plan = 'MONTHLY 6') {
 
 window.adminActivate = (userId, plan) => runAdminAction(userId, 'activate', plan);
 window.adminSuspend = (userId) => runAdminAction(userId, 'suspend');
+window.adminResume = (userId) => runAdminAction(userId, 'resume');
+window.adminBan = (userId) => {
+  if (confirm(isArabic
+    ? 'هذا الحظر نهائي وسيمنع المستخدم من تسجيل الدخول. هل تريد المتابعة؟'
+    : 'This permanent ban prevents the user from signing in. Continue?')) {
+    return runAdminAction(userId, 'ban');
+  }
+};
 window.adminRenew = (userId, plan) => runAdminAction(userId, 'renew', plan);
 
 function render() {
@@ -290,6 +367,7 @@ function render() {
           <div>
             <div class="flex items-center space-x-1.5 rtl:space-x-reverse font-extrabold text-base sm:text-lg leading-tight">
               <span class="text-sky-500">هفيدك</span>
+              <span class="text-slate-300 text-xs sm:text-sm font-bold" dir="ltr">Haafedk</span>
             </div>
             <div class="text-[9px] sm:text-[10px] tracking-wider text-sky-400 font-bold uppercase">${isArabic ? 'خدمات iCloud' : 'iCloud Services'}</div>
           </div>
@@ -998,7 +1076,7 @@ function renderDashboardScreen() {
           <div class="grid grid-cols-2 gap-3 text-xs">
             <div class="rounded-xl border border-slate-800 bg-slate-800/40 p-3">
               <div class="text-slate-400 text-[10px]">${isArabic ? 'بداية الاشتراك:' : 'Start:'}</div>
-              <div class="font-black text-white mt-0.5 text-sm">${currentUser.startDate || '2026-09-30'}</div>
+              <div class="font-black text-white mt-0.5 text-sm">${escapeHtml(currentUser.startDate || '—')}</div>
             </div>
             <div class="rounded-xl border border-sky-500/30 bg-sky-500/10 p-3">
               <div class="text-sky-300 text-[10px]">${isArabic ? 'نهاية الاشتراك:' : 'Expiry:'}</div>
@@ -1119,20 +1197,13 @@ function renderDashboardScreen() {
             <!-- Upload Receipt -->
             <div>
               <label class="block font-bold text-slate-300 mb-1">${isArabic ? 'رفع وصل الدفع:' : 'Receipt:'}</label>
-              <div id="receiptInputWrapper" data-filename="" class="border border-dashed border-slate-700 hover:border-sky-500 rounded-xl p-4 text-center cursor-pointer" onclick="document.getElementById('receiptInput').click()">
-                <input type="file" id="receiptInput" accept="image/*,application/pdf" class="hidden" onchange="
-                  const file = this.files[0];
-                  if(file) {
-                    document.getElementById('receiptStatusText').innerText = file.name;
-                    document.getElementById('receiptInputWrapper').dataset.filename = file.name;
-                    showToast(isArabic ? 'تم إرفاق: ' + file.name : 'Attached: ' + file.name);
-                  }
-                ">
-                <div id="receiptStatusText" class="font-bold text-slate-300">${isArabic ? 'اضغط لاختيار صورة الوصل' : 'Click to select receipt'}</div>
+              <div id="receiptInputWrapper" data-filename="${escapeHtml(currentUser.receiptFileName || '')}" data-uploading="false" class="border border-dashed border-slate-700 hover:border-sky-500 rounded-xl p-4 text-center cursor-pointer" onclick="if(event.target.id !== 'receiptInput') document.getElementById('receiptInput').click()">
+                <input type="file" id="receiptInput" accept="image/jpeg,image/png,image/webp,application/pdf" class="hidden" onchange="uploadReceiptFile(this.files[0])">
+                <div id="receiptStatusText" class="font-bold text-slate-300">${currentUser.receiptFileName ? escapeHtml(currentUser.receiptFileName) : (isArabic ? 'اضغط لاختيار صورة الوصل' : 'Choose a receipt image or PDF')}</div>
               </div>
             </div>
 
-            <button type="submit" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-xl transition text-xs shadow-lg shadow-sky-600/30">
+            <button type="submit" id="activationSubmitButton" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-xl transition text-xs shadow-lg shadow-sky-600/30">
               ${isArabic ? 'إرسال طلب التفعيل' : 'Submit Activation Request'}
             </button>
           </form>
@@ -1164,14 +1235,17 @@ function renderAdminScreen() {
             <div class="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
               <div>
                 <span class="font-bold text-sm text-white">${escapeHtml(u.username)}</span>
+                <span class="text-slate-300 text-[11px] block">${escapeHtml(u.fullName || '—')}</span>
                 <span class="text-slate-400 text-[11px] block">${escapeHtml(u.email)}</span>
               </div>
-              <span class="px-2 py-0.5 rounded text-[10px] font-black ${u.status === 'ACTIVE' ? 'bg-emerald-500/20 text-emerald-400' : u.status === 'PENDING' ? 'bg-amber-500/20 text-amber-400' : 'bg-rose-500/20 text-rose-400'}">
-                ${u.status}
+              <span class="px-2 py-0.5 rounded text-[10px] font-black ${u.status === 'ACTIVE' ? 'bg-emerald-500/20 text-emerald-400' : u.status === 'PENDING' ? 'bg-amber-500/20 text-amber-400' : u.status === 'BANNED' ? 'bg-red-950 text-red-300' : 'bg-rose-500/20 text-rose-400'}">
+                ${isArabic
+                  ? (u.status === 'ACTIVE' ? 'مفعل' : u.status === 'PENDING' ? 'قيد المراجعة' : u.status === 'SUSPENDED' ? 'موقوف مؤقتاً' : u.status === 'BANNED' ? 'محظور نهائياً' : 'غير مفعل')
+                  : u.status}
               </span>
             </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-slate-950 p-2.5 rounded-lg font-mono">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-950 p-2.5 rounded-lg font-mono">
               <div>
                 <span class="text-slate-500 text-[10px] block font-sans">${isArabic ? 'الهاتف:' : 'Phone:'}</span>
                 <span class="text-white">${escapeHtml(u.phone || '—')}</span>
@@ -1184,6 +1258,14 @@ function renderAdminScreen() {
                 <span class="text-slate-500 text-[10px] block font-sans">${isArabic ? 'النوع:' : 'Type:'}</span>
                 <span class="text-slate-300">${escapeHtml(u.beneficiaryType || 'لنفسي')}</span>
               </div>
+              <div>
+                <span class="text-slate-500 text-[10px] block font-sans">${isArabic ? 'تاريخ التسجيل:' : 'Registered:'}</span>
+                <span class="text-white">${escapeHtml(u.registrationDate || '—')}</span>
+              </div>
+              <div>
+                <span class="text-slate-500 text-[10px] block font-sans">${isArabic ? 'مفتاح الترخيص:' : 'License:'}</span>
+                <span class="text-white">${escapeHtml(u.licenseKey || '—')}</span>
+              </div>
             </div>
 
             ${u.startDate ? `
@@ -1195,31 +1277,46 @@ function renderAdminScreen() {
             ${u.receiptFileName ? `
               <div class="flex items-center justify-between bg-slate-800/50 p-2 rounded text-[11px]">
                 <span class="text-sky-400 font-bold">${isArabic ? 'وصل الدفع: ' : 'Receipt: '} ${escapeHtml(u.receiptFileName)}</span>
-                <button onclick="previewReceiptUser = CURRENT_USERS.find(x => x.id === '${u.id}'); render();" class="text-sky-400 font-bold underline">
-                  ${isArabic ? 'معاينة' : 'View'}
-                </button>
+                ${u.hasReceipt ? `
+                  <button onclick="previewReceiptUser = CURRENT_USERS.find(x => x.id === '${u.id}'); render();" class="text-sky-400 font-bold underline">
+                    ${isArabic ? 'معاينة' : 'View'}
+                  </button>
+                ` : `<span class="text-slate-500">${isArabic ? 'الملف غير محفوظ' : 'File not stored'}</span>`}
               </div>
             ` : ''}
 
             <div class="flex flex-wrap gap-2 pt-1 border-t border-slate-800">
-              <button onclick="adminActivate('${u.id}', 'MONTHLY 6')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-2.5 py-1.5 rounded text-[11px]">
-                ${isArabic ? 'تفعيل 6 أشهر' : 'Act 6M'}
-              </button>
-              <button onclick="adminActivate('${u.id}', 'YEAR')" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-2.5 py-1.5 rounded text-[11px]">
-                ${isArabic ? 'تفعيل سنة' : 'Act 1Yr'}
-              </button>
-              <button onclick="adminActivate('${u.id}', 'TWO YEARS')" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-2.5 py-1.5 rounded text-[11px]">
-                ${isArabic ? 'تفعيل 730 يوم' : 'Act 730 days'}
-              </button>
-              <button onclick="adminActivate('${u.id}', 'LIFETIME')" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-2.5 py-1.5 rounded text-[11px]">
-                ${isArabic ? 'تفعيل مدى الحياة' : 'Act Lifetime'}
-              </button>
-              <button onclick="adminSuspend('${u.id}')" class="bg-rose-600 hover:bg-rose-500 text-white font-bold px-2.5 py-1.5 rounded text-[11px]">
-                ${isArabic ? 'توقيف' : 'Suspend'}
-              </button>
-              <button onclick="adminRenew('${u.id}', '${normalizedSubscriptionPlan(u.subscriptionPlan)}')" class="border border-sky-500 text-sky-400 font-bold px-2.5 py-1.5 rounded text-[11px]">
-                ${isArabic ? 'تجديد' : 'Renew'}
-              </button>
+              ${u.status === 'BANNED' ? `
+                <span class="text-red-300 font-bold px-2.5 py-1.5">${isArabic ? 'حظر نهائي' : 'Permanently banned'}</span>
+              ` : `
+                <button onclick="adminActivate('${u.id}', 'MONTHLY 6')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-2.5 py-1.5 rounded text-[11px]">
+                  ${isArabic ? 'تفعيل 6 أشهر' : 'Act 6M'}
+                </button>
+                <button onclick="adminActivate('${u.id}', 'YEAR')" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-2.5 py-1.5 rounded text-[11px]">
+                  ${isArabic ? 'تفعيل سنة' : 'Act 1Yr'}
+                </button>
+                <button onclick="adminActivate('${u.id}', 'TWO YEARS')" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-2.5 py-1.5 rounded text-[11px]">
+                  ${isArabic ? 'تفعيل 730 يوم' : 'Act 730 days'}
+                </button>
+                <button onclick="adminActivate('${u.id}', 'LIFETIME')" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-2.5 py-1.5 rounded text-[11px]">
+                  ${isArabic ? 'تفعيل مدى الحياة' : 'Act Lifetime'}
+                </button>
+                ${u.status === 'SUSPENDED' ? `
+                  <button onclick="adminResume('${u.id}')" class="bg-emerald-700 hover:bg-emerald-600 text-white font-bold px-2.5 py-1.5 rounded text-[11px]">
+                    ${isArabic ? 'استئناف' : 'Resume'}
+                  </button>
+                ` : `
+                  <button onclick="adminSuspend('${u.id}')" class="bg-rose-600 hover:bg-rose-500 text-white font-bold px-2.5 py-1.5 rounded text-[11px]">
+                    ${isArabic ? 'إيقاف مؤقت' : 'Suspend'}
+                  </button>
+                `}
+                <button onclick="adminBan('${u.id}')" class="bg-red-800 hover:bg-red-700 text-white font-bold px-2.5 py-1.5 rounded text-[11px]">
+                  ${isArabic ? 'حظر نهائي' : 'Permanent ban'}
+                </button>
+                <button onclick="adminRenew('${u.id}', '${normalizedSubscriptionPlan(u.subscriptionPlan)}')" class="border border-sky-500 text-sky-400 font-bold px-2.5 py-1.5 rounded text-[11px]">
+                  ${isArabic ? 'تجديد' : 'Renew'}
+                </button>
+              `}
             </div>
           </div>
         `).join('') : `
@@ -1264,10 +1361,9 @@ function renderAuthModal() {
 
         ${authIsRegister ? `
           <div class="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 mb-3 text-[11px] leading-relaxed text-slate-200">
-            Your account will be created as Inactive.<br>
-            🔐 The account must be activated through any supported activation server.<br>
-            🌍 To purchase activation, please visit the Authorized Resellers page:<br>
-            👉 Open Resellers Page<br>
+            ${isArabic
+              ? 'سيُنشأ حسابك وتدخل إليه مباشرة. سيبقى غير مفعل إلى أن ترفع طلب التفعيل وتراجعه الإدارة.'
+              : 'Your account is created and signed in immediately. It stays inactive until the activation request is reviewed.'}
             ⚠️ سيتم إنشاء الحساب في حالة غير مفعل<br>
             🔐 يتم تفعيل الحساب بعد اتمام انشاء الحساب ثم الدفع و رفع وصل الدفع
           </div>
@@ -1291,8 +1387,10 @@ function renderAuthModal() {
             <input id="authPassword" type="password" name="password" required ${authIsRegister ? 'minlength="12"' : ''} placeholder="••••••••" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white outline-none focus:border-sky-500">
           </div>
 
-          <button type="submit" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl transition shadow-lg shadow-sky-600/30">
-            ${authIsRegister ? (isArabic ? 'إنشاء الحساب' : 'Register') : (isArabic ? 'تسجيل الدخول' : 'Login')}
+          <button type="submit" id="authSubmitButton" ${authIsSubmitting ? 'disabled' : ''} class="w-full bg-sky-600 hover:bg-sky-500 disabled:opacity-60 text-white font-bold py-2.5 rounded-xl transition shadow-lg shadow-sky-600/30">
+            ${authIsSubmitting
+              ? (authIsRegister ? (isArabic ? 'جارٍ إنشاء الحساب...' : 'Creating account...') : (isArabic ? 'جارٍ تسجيل الدخول...' : 'Signing in...'))
+              : (authIsRegister ? (isArabic ? 'إنشاء الحساب' : 'Register') : (isArabic ? 'تسجيل الدخول' : 'Login'))}
           </button>
         </form>
       </div>
@@ -1301,20 +1399,33 @@ function renderAuthModal() {
 }
 
 function renderReceiptModal() {
+  const receiptPreviewUrl = `/api/admin/users/${encodeURIComponent(previewReceiptUser.id)}/receipt`;
   return `
     <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-      <div class="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-2xl relative space-y-3 text-xs">
+      <div class="w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-2xl relative space-y-3 text-xs">
         <button onclick="previewReceiptUser = null; render();" class="absolute top-4 left-4 rtl:left-auto rtl:right-4 text-slate-400 hover:text-white">
           ✕
         </button>
 
         <h3 class="font-extrabold text-white text-sm">${isArabic ? 'معاينة الوصل: ' : 'Receipt: '} ${escapeHtml(previewReceiptUser.username)}</h3>
+
+        ${previewReceiptUser.hasReceipt
+          ? (previewReceiptUser.receiptMimeType === 'application/pdf'
+            ? `<iframe src="${receiptPreviewUrl}" title="${isArabic ? 'إيصال الدفع' : 'Payment receipt'}" class="w-full h-[65vh] rounded-xl border border-slate-700 bg-white"></iframe>`
+            : `<img src="${receiptPreviewUrl}" alt="${isArabic ? 'إيصال الدفع' : 'Payment receipt'}" class="max-h-[65vh] w-full rounded-xl border border-slate-700 object-contain bg-slate-950">`)
+          : `<div class="rounded-xl bg-slate-950 p-5 text-center text-slate-400">${isArabic ? 'ملف الإيصال غير متوفر.' : 'Receipt file is not available.'}</div>`}
         
         <div class="rounded-xl border border-slate-800 bg-slate-950 p-5 text-center space-y-2">
           <div class="font-mono font-bold text-sky-400">${escapeHtml(previewReceiptUser.receiptFileName || 'recu.jpg')}</div>
           <div class="text-emerald-400 font-bold">${isArabic ? 'المبلغ: ' : 'Amount: '} ${subscriptionPlanPrice(previewReceiptUser.subscriptionPlan)}</div>
           <div class="text-slate-400">${isArabic ? 'تاريخ العملية: ' : 'Date: '} ${previewReceiptUser.registrationDate}</div>
         </div>
+
+        ${previewReceiptUser.hasReceipt ? `
+          <a href="${receiptPreviewUrl}" target="_blank" rel="noopener noreferrer" class="block text-center text-sky-400 underline font-bold">
+            ${isArabic ? 'فتح الوصل في تبويب جديد' : 'Open receipt in a new tab'}
+          </a>
+        ` : ''}
 
         <button onclick="previewReceiptUser = null; render();" class="w-full py-2 rounded-xl bg-slate-800 text-white font-bold">
           ${isArabic ? 'إغلاق' : 'Close'}

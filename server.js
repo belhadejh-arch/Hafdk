@@ -19,6 +19,17 @@ const subscriptionPlanDays = new Map([
   ['TWO YEARS', 730],
   ['LIFETIME', null]
 ]);
+const allowedReceiptContentTypes = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'application/pdf'
+]);
+const publicUserColumns = `
+  id, username, email, role, phone, full_name, beneficiary_type, subscription_plan,
+  status, registration_date, start_date, end_date, license_key, receipt_file_name,
+  receipt_content_type, (receipt_content IS NOT NULL) AS has_receipt, created_at
+`;
 function normalizeOrigin(value) {
   try {
     return new URL(value).origin;
@@ -112,13 +123,34 @@ function publicUser(row) {
     startDate: row.start_date ? String(row.start_date).slice(0, 10) : null,
     endDate: row.end_date ? String(row.end_date).slice(0, 10) : null,
     licenseKey: row.license_key || null,
-    receiptFileName: row.receipt_file_name || null
+    receiptFileName: row.receipt_file_name || null,
+    receiptMimeType: row.receipt_content_type || null,
+    hasReceipt: Boolean(row.has_receipt ?? row.receipt_content),
+    createdAt: row.created_at ? new Date(row.created_at).toISOString() : null
   };
 }
 
-function requireUser(req, res, next) {
+async function requireUser(req, res, next) {
   if (!req.session.userId) return res.status(401).json({ error: 'يجب تسجيل الدخول أولاً.' });
-  next();
+  try {
+    const result = await pool.query('SELECT status FROM users WHERE id = $1', [req.session.userId]);
+    const user = result.rows[0];
+    if (!user) {
+      req.session.destroy(() => {});
+      res.clearCookie('haafedk.sid', { httpOnly: true, secure: isProduction, sameSite: 'lax' });
+      return res.status(401).json({ error: 'انتهت صلاحية الجلسة.' });
+    }
+    if (user.status === 'SUSPENDED' || user.status === 'BANNED') {
+      req.session.destroy(() => {});
+      res.clearCookie('haafedk.sid', { httpOnly: true, secure: isProduction, sameSite: 'lax' });
+      return res.status(403).json({
+        error: user.status === 'BANNED' ? 'تم حظر الحساب نهائياً.' : 'الحساب موقوف مؤقتاً.'
+      });
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
 }
 
 async function requireAdmin(req, res, next) {
@@ -164,7 +196,7 @@ app.post('/api/auth/register', authLimiter, async (req, res, next) => {
   }
 
   try {
-    const passwordHash = await bcrypt.hash(password, 12);
+    const passwordHash = await bcrypt.hash(password, 11);
     const result = await pool.query(
       `INSERT INTO users (id, username, email, password_hash, role, status)
        VALUES ($1, $2, $3, $4, 'USER', 'INACTIVE')
@@ -191,12 +223,19 @@ app.post('/api/auth/login', authLimiter, async (req, res, next) => {
 
   try {
     const result = await pool.query(
-      'SELECT * FROM users WHERE lower(username) = $1 OR lower(email) = $1 LIMIT 1',
+      `SELECT ${publicUserColumns}, password_hash
+       FROM users WHERE lower(username) = $1 OR lower(email) = $1 LIMIT 1`,
       [login]
     );
     const row = result.rows[0];
     if (!row || !(await bcrypt.compare(password, row.password_hash))) {
       return res.status(401).json({ error: 'اسم المستخدم أو كلمة المرور غير صحيحة.' });
+    }
+    if (row.status === 'BANNED') {
+      return res.status(403).json({ error: 'تم حظر الحساب نهائياً.' });
+    }
+    if (row.status === 'SUSPENDED') {
+      return res.status(403).json({ error: 'الحساب موقوف مؤقتاً. تواصل مع الدعم.' });
     }
     await regenerateSession(req);
     req.session.userId = row.id;
@@ -209,10 +248,21 @@ app.post('/api/auth/login', authLimiter, async (req, res, next) => {
 app.get('/api/auth/me', async (req, res, next) => {
   if (!req.session.userId) return res.json({ user: null });
   try {
-    const result = await pool.query('SELECT * FROM users WHERE id = $1', [req.session.userId]);
+    const result = await pool.query(
+      `SELECT ${publicUserColumns} FROM users WHERE id = $1`,
+      [req.session.userId]
+    );
     if (!result.rows[0]) {
       req.session.destroy(() => {});
       return res.status(401).json({ error: 'انتهت صلاحية الجلسة.' });
+    }
+    if (result.rows[0].status === 'BANNED' || result.rows[0].status === 'SUSPENDED') {
+      const status = result.rows[0].status;
+      req.session.destroy(() => {});
+      res.clearCookie('haafedk.sid', { httpOnly: true, secure: isProduction, sameSite: 'lax' });
+      return res.status(403).json({
+        error: status === 'BANNED' ? 'تم حظر الحساب نهائياً.' : 'الحساب موقوف مؤقتاً.'
+      });
     }
     res.json({ user: publicUser(result.rows[0]) });
   } catch (error) {
@@ -243,8 +293,43 @@ app.patch('/api/account/activation', requireUser, async (req, res, next) => {
       `UPDATE users SET full_name = $1, phone = $2, beneficiary_type = $3,
        subscription_plan = $4, receipt_file_name = $5, status = 'PENDING',
        updated_at = NOW()
-       WHERE id = $6 RETURNING *`,
+       WHERE id = $6 RETURNING ${publicUserColumns}`,
       [fullName, phone, beneficiaryType, plan, receiptFileName, req.session.userId]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'الحساب غير موجود.' });
+    res.json({ user: publicUser(result.rows[0]) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.put('/api/account/receipt', requireUser, express.raw({
+  type: [...allowedReceiptContentTypes],
+  limit: '5mb'
+}), async (req, res, next) => {
+  const contentType = String(req.get('content-type') || '').split(';')[0].trim().toLowerCase();
+  if (!allowedReceiptContentTypes.has(contentType)) {
+    return res.status(415).json({ error: 'ارفع صورة JPG أو PNG أو WebP أو ملف PDF.' });
+  }
+  if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+    return res.status(400).json({ error: 'الملف المرفوع فارغ.' });
+  }
+
+  let receiptFileName = String(req.get('x-receipt-filename') || '');
+  try {
+    receiptFileName = decodeURIComponent(receiptFileName);
+  } catch {
+    return res.status(400).json({ error: 'اسم الملف غير صالح.' });
+  }
+  receiptFileName = receiptFileName.replace(/[\\/\u0000-\u001f\u007f]/g, '').slice(0, 180) || 'receipt';
+
+  try {
+    const result = await pool.query(
+      `UPDATE users
+       SET receipt_file_name = $1, receipt_content = $2, receipt_content_type = $3, updated_at = NOW()
+       WHERE id = $4 AND status NOT IN ('SUSPENDED', 'BANNED')
+       RETURNING ${publicUserColumns}`,
+      [receiptFileName, req.body, contentType, req.session.userId]
     );
     if (!result.rows[0]) return res.status(404).json({ error: 'الحساب غير موجود.' });
     res.json({ user: publicUser(result.rows[0]) });
@@ -255,8 +340,32 @@ app.patch('/api/account/activation', requireUser, async (req, res, next) => {
 
 app.get('/api/admin/users', requireAdmin, async (_req, res, next) => {
   try {
-    const result = await pool.query("SELECT * FROM users WHERE role = 'USER' ORDER BY created_at DESC");
+    const result = await pool.query(
+      `SELECT ${publicUserColumns}
+       FROM users WHERE role = 'USER' ORDER BY created_at DESC`
+    );
     res.json({ users: result.rows.map(publicUser) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/admin/users/:id/receipt', requireAdmin, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT receipt_content, receipt_content_type, receipt_file_name
+       FROM users WHERE id = $1 AND role = 'USER'`,
+      [req.params.id]
+    );
+    const receipt = result.rows[0];
+    if (!receipt?.receipt_content || !allowedReceiptContentTypes.has(receipt.receipt_content_type)) {
+      return res.status(404).json({ error: 'إيصال المستخدم غير متوفر.' });
+    }
+    res.setHeader('Content-Type', receipt.receipt_content_type);
+    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(receipt.receipt_file_name || 'receipt')}`);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.send(receipt.receipt_content);
   } catch (error) {
     next(error);
   }
@@ -266,10 +375,25 @@ app.patch('/api/admin/users/:id', requireAdmin, async (req, res, next) => {
   const { action } = req.body || {};
   try {
     let result;
-    if (action === 'suspend') {
+    if (action === 'ban') {
+      result = await pool.query(
+        `UPDATE users SET status = 'BANNED', updated_at = NOW()
+         WHERE id = $1 AND role = 'USER' RETURNING ${publicUserColumns}`,
+        [req.params.id]
+      );
+    } else if (action === 'suspend') {
       result = await pool.query(
         `UPDATE users SET status = 'SUSPENDED', updated_at = NOW()
-         WHERE id = $1 AND role = 'USER' RETURNING *`,
+         WHERE id = $1 AND role = 'USER' AND status <> 'BANNED'
+         RETURNING ${publicUserColumns}`,
+        [req.params.id]
+      );
+    } else if (action === 'resume') {
+      result = await pool.query(
+        `UPDATE users SET status = 'ACTIVE', updated_at = NOW()
+         WHERE id = $1 AND role = 'USER' AND status = 'SUSPENDED'
+           AND (subscription_plan = 'LIFETIME' OR end_date >= CURRENT_DATE)
+         RETURNING ${publicUserColumns}`,
         [req.params.id]
       );
     } else if (action === 'activate' || action === 'renew') {
@@ -285,7 +409,8 @@ app.patch('/api/admin/users/:id', requireAdmin, async (req, res, next) => {
       result = await pool.query(
         `UPDATE users SET status = 'ACTIVE', subscription_plan = $1,
          start_date = $2, end_date = $3, license_key = $4, updated_at = NOW()
-         WHERE id = $5 AND role = 'USER' RETURNING *`,
+         WHERE id = $5 AND role = 'USER' AND status <> 'BANNED'
+         RETURNING ${publicUserColumns}`,
         [
           plan,
           now.toISOString().slice(0, 10),
@@ -297,7 +422,13 @@ app.patch('/api/admin/users/:id', requireAdmin, async (req, res, next) => {
     } else {
       return res.status(400).json({ error: 'الإجراء غير معروف.' });
     }
-    if (!result.rows[0]) return res.status(404).json({ error: 'المستخدم غير موجود.' });
+    if (!result.rows[0]) {
+      return res.status(404).json({
+        error: action === 'resume'
+          ? 'تعذر استئناف الاشتراك؛ تحقق من حالة الحساب وتاريخ انتهائه.'
+          : 'المستخدم غير موجود أو محظور نهائياً.'
+      });
+    }
     res.json({ user: publicUser(result.rows[0]) });
   } catch (error) {
     next(error);
@@ -314,6 +445,9 @@ app.get(/.*/, (_req, res) => res.sendFile(path.join(projectDir, 'public', 'index
 app.use((error, _req, res, _next) => {
   if (error.code === '23505') {
     return res.status(409).json({ error: 'السجل موجود مسبقاً.' });
+  }
+  if (error.status === 413 || error.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'الحد الأقصى لحجم الملف 5 ميغابايت.' });
   }
   console.error('Request failed:', error.message);
   res.status(500).json({ error: 'حدث خطأ داخلي. حاول مرة أخرى.' });
