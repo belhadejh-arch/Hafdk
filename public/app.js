@@ -249,8 +249,7 @@ function render() {
           </div>
           <div>
             <div class="flex items-center space-x-1.5 rtl:space-x-reverse font-extrabold text-base sm:text-lg leading-tight">
-              <span class="text-sky-500">حفضك</span>
-              <span class="${isDarkMode ? 'text-white' : 'text-slate-900'}">Haafedk</span>
+              <span class="text-sky-500">هفيدك</span>
             </div>
             <div class="text-[9px] sm:text-[10px] tracking-wider text-sky-400 font-bold uppercase">iCloud Premium</div>
           </div>
@@ -293,7 +292,7 @@ function render() {
             H
           </div>
           <div>
-            <div class="font-extrabold text-sm text-sky-500">حفضك Haafedk</div>
+            <div class="font-extrabold text-sm text-sky-500">هفيدك</div>
             <div class="text-[10px] text-slate-400 font-semibold">${isArabic ? 'القائمة الرئيسية والأقسام' : 'Navigation Menu'}</div>
           </div>
         </div>
@@ -440,7 +439,7 @@ function renderHomeScreen() {
         </div>
 
         <h1 class="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight mb-3 sm:mb-4 ${isDarkMode ? 'text-white' : 'text-slate-900'} leading-tight">
-          ${isArabic ? 'Haafedk iCloud Premium — الحل الأقوى لتخطي iCloud' : 'Haafedk iCloud Premium — Ultimate Bypass Solution'}
+          ${isArabic ? 'هفيدك iCloud Premium — الحل الأقوى لتخطي iCloud' : 'هفيدك iCloud Premium — Ultimate Bypass Solution'}
         </h1>
 
         <p class="max-w-2xl mx-auto text-xs sm:text-base text-slate-300 font-medium mb-6 sm:mb-8 leading-relaxed">
@@ -563,7 +562,7 @@ function renderHomeScreen() {
       <div class="rounded-2xl border border-amber-500/40 bg-slate-900/70 p-5 sm:p-7 space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <span class="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/30">${isArabic ? 'أداة باتشر متكاملة — مجانية لجميع أعضاء Haafedk Premium المفعّلين.' : 'A complete patcher, free for active Haafedk Premium members.'}</span>
+            <span class="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/30">${isArabic ? 'أداة باتشر متكاملة — مجانية لجميع أعضاء هفيدك Premium المفعّلين.' : 'A complete patcher, free for active Haafedk Premium members.'}</span>
             <h2 class="text-xl font-black text-white mt-1.5">Haafedk Patcher — ${isArabic ? 'أداة باتشر احترافية' : 'Pro Patcher'}</h2>
             <p class="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">${isArabic ? 'تطبيق احترافي لتطبيق الباتشات على ملفات النظام لأجهزة iPhone و iPad، يتيح العمل على الملفات المختلفة بسهولة وأمان.' : 'Haafedk Patcher is a professional tool for applying patches to iPhone and iPad system files with ease and safety.'}</p>
           </div>
@@ -748,13 +747,13 @@ function renderPatcherScreen() {
   return `
     <div class="space-y-6 max-w-4xl mx-auto">
       <div class="rounded-2xl border border-amber-500/30 bg-slate-900/60 p-5 sm:p-7 space-y-4">
-        <span class="px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold">${isArabic ? 'أداة باتشر متكاملة — مجانية لجميع أعضاء Haafedk Premium المفعّلين.' : 'A complete patcher, free for all active Haafedk Premium members.'}</span>
+        <span class="px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold">${isArabic ? 'أداة باتشر متكاملة — مجانية لجميع أعضاء هفيدك Premium المفعّلين.' : 'A complete patcher, free for all active Haafedk Premium members.'}</span>
         <h1 class="text-2xl font-black text-white">Haafedk Patcher — ${isArabic ? 'أداة باتشر احترافية' : 'Pro Patcher'}</h1>
         <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
           ${isArabic ? 'Haafedk Patcher أداة احترافية لتطبيق الباتشات على ملفات النظام الخاصة بأجهزة iPhone و iPad. تتيح لك العمل على الملفات المختلفة بكل سهولة وأمان.' : 'Haafedk Patcher is a professional tool for applying patches to iPhone and iPad system files, making it easy to work with different files safely.'}
         </p>
         <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
-          ${isArabic ? 'الأداة مدمجة مع نظام Haafedk Premium ومجانية للأعضاء المفعّلين.' : 'The tool is integrated with Haafedk Premium and is free for active members.'}
+          ${isArabic ? 'الأداة مدمجة مع نظام هفيدك Premium ومجانية للأعضاء المفعّلين.' : 'The tool is integrated with Haafedk Premium and is free for active members.'}
         </p>
         <div class="flex flex-wrap gap-3 pt-1">
           <a href="${patcherDownloadUrl}" target="_blank" rel="noopener noreferrer" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs transition">
@@ -917,8 +916,8 @@ function renderDashboardScreen() {
             </button>
           </div>
 
-          <button onclick="showToast(isArabic ? 'جارٍ تحميل أداة Haafedk iCloud Tool...' : 'Downloading tool...')" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl text-xs transition">
-            ${isArabic ? 'تحميل أداة Haafedk iCloud Tool v4.8.2' : 'Download Tool v4.8.2'}
+          <button onclick="showToast(isArabic ? 'جارٍ تحميل أداة هفيدك iCloud Tool...' : 'Downloading tool...')" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl text-xs transition">
+            ${isArabic ? 'تحميل أداة هفيدك iCloud Tool v4.8.2' : 'Download Tool v4.8.2'}
           </button>
         </div>
       ` : ''}
