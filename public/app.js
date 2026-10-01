@@ -12,6 +12,7 @@ let showAuthModal = false;
 let authIsRegister = false;
 let toastMessage = null;
 let previewReceiptUser = null;
+let selectedSubscriptionPlan = 'MONTHLY 6';
 
 const deviceCounts = Object.fromEntries(
   ['iphone', 'ipad', 'ipod'].map((category) => [
@@ -20,7 +21,27 @@ const deviceCounts = Object.fromEntries(
   ])
 );
 const totalSupportedDevices = supportedDevices.length;
-const patcherDownloadUrl = 'https://drive.google.com/file/d/1y8YnlQYAtOmwea7RyKdagxEBeD3VTFTv/view?usp=drivesdk';
+const toolDownloadUrl = 'https://drive.google.com/file/d/1y8YnlQYAtOmwea7RyKdagxEBeD3VTFTv/view?usp=drivesdk';
+const subscriptionPlans = [
+  { value: 'MONTHLY 6', nameAr: '6 أشهر', nameEn: '6 months', durationAr: '180 يوم', durationEn: '180 days', price: 8000 },
+  { value: 'YEAR', nameAr: 'سنة', nameEn: '1 year', durationAr: '365 يوم', durationEn: '365 days', price: 15000 },
+  { value: 'TWO YEARS', nameAr: 'سنتين', nameEn: '2 years', durationAr: '730 يوم', durationEn: '730 days', price: 29000 },
+  { value: 'LIFETIME', nameAr: 'مدى الحياة', nameEn: 'Lifetime', durationAr: 'مدى الحياة', durationEn: 'Lifetime', price: 90000 }
+];
+
+function subscriptionPlanName(plan) {
+  const option = subscriptionPlans.find((item) => item.value === plan);
+  return option ? (isArabic ? option.nameAr : option.nameEn) : plan;
+}
+
+function subscriptionPlanPrice(plan) {
+  const option = subscriptionPlans.find((item) => item.value === plan);
+  return option ? `${option.price.toLocaleString('en-US')} دج` : '—';
+}
+
+function normalizedSubscriptionPlan(plan) {
+  return subscriptionPlans.some((item) => item.value === plan) ? plan : 'MONTHLY 6';
+}
 
 // Inline HTML handlers execute outside this ES module's lexical scope.
 Object.defineProperties(window, {
@@ -32,6 +53,7 @@ Object.defineProperties(window, {
   searchQuery: { configurable: true, get: () => searchQuery, set: (value) => { searchQuery = value; } },
   showAuthModal: { configurable: true, get: () => showAuthModal, set: (value) => { showAuthModal = value; } },
   authIsRegister: { configurable: true, get: () => authIsRegister, set: (value) => { authIsRegister = value; } },
+  selectedSubscriptionPlan: { configurable: true, get: () => selectedSubscriptionPlan, set: (value) => { selectedSubscriptionPlan = value; } },
   previewReceiptUser: { configurable: true, get: () => previewReceiptUser, set: (value) => { previewReceiptUser = value; } },
   render: { configurable: true, value: render },
   showToast: { configurable: true, value: showToast }
@@ -86,6 +108,24 @@ window.copyToClipboard = function(text, label) {
   navigator.clipboard.writeText(text).then(() => {
     showToast((isArabic ? 'تم نسخ ' : 'Copied ') + label);
   });
+};
+
+window.rememberSubscriptionPlan = function(plan) {
+  selectedSubscriptionPlan = normalizedSubscriptionPlan(plan);
+};
+
+window.startSubscription = function(plan) {
+  selectedSubscriptionPlan = normalizedSubscriptionPlan(plan);
+  if (currentUser) {
+    activeTab = 'dashboard';
+    isSidebarOpen = false;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    render();
+    return;
+  }
+  showAuthModal = true;
+  authIsRegister = true;
+  render();
 };
 
 async function apiRequest(url, options = {}) {
@@ -203,11 +243,11 @@ window.handleActivationSubmit = async function(beneficiary, name, phone, plan, r
   }
 };
 
-async function runAdminAction(userId, action, months = 6) {
+async function runAdminAction(userId, action, plan = 'MONTHLY 6') {
   try {
     const { user } = await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}`, {
       method: 'PATCH',
-      body: JSON.stringify({ action, months })
+      body: JSON.stringify({ action, plan })
     });
     if (currentUser?.id === user.id) currentUser = user;
     await refreshAdminUsers();
@@ -219,9 +259,9 @@ async function runAdminAction(userId, action, months = 6) {
   }
 }
 
-window.adminActivate = (userId, months) => runAdminAction(userId, 'activate', months);
+window.adminActivate = (userId, plan) => runAdminAction(userId, 'activate', plan);
 window.adminSuspend = (userId) => runAdminAction(userId, 'suspend');
-window.adminRenew = (userId, days) => runAdminAction(userId, 'renew', days >= 365 ? 12 : 6);
+window.adminRenew = (userId, plan) => runAdminAction(userId, 'renew', plan);
 
 function render() {
   const app = document.getElementById('app');
@@ -251,7 +291,7 @@ function render() {
             <div class="flex items-center space-x-1.5 rtl:space-x-reverse font-extrabold text-base sm:text-lg leading-tight">
               <span class="text-sky-500">هفيدك</span>
             </div>
-            <div class="text-[9px] sm:text-[10px] tracking-wider text-sky-400 font-bold uppercase">iCloud Premium</div>
+            <div class="text-[9px] sm:text-[10px] tracking-wider text-sky-400 font-bold uppercase">${isArabic ? 'خدمات iCloud' : 'iCloud Services'}</div>
           </div>
         </div>
 
@@ -448,7 +488,7 @@ function renderHomeScreen() {
 
         <!-- CTA Buttons -->
         <div class="flex flex-col sm:flex-row items-center justify-center gap-3 mb-6">
-          <a href="${patcherDownloadUrl}" target="_blank" rel="noopener noreferrer" class="w-full sm:w-auto bg-sky-600 hover:bg-sky-500 text-white font-bold px-6 py-3 rounded-xl shadow-lg shadow-sky-600/30 flex items-center justify-center space-x-2 rtl:space-x-reverse transition text-sm">
+          <a href="${toolDownloadUrl}" target="_blank" rel="noopener noreferrer" class="w-full sm:w-auto bg-sky-600 hover:bg-sky-500 text-white font-bold px-6 py-3 rounded-xl shadow-lg shadow-sky-600/30 flex items-center justify-center space-x-2 rtl:space-x-reverse transition text-sm">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
             <span>${isArabic ? 'تحميل الأداة الآن' : 'Download Tool Now'}</span>
           </a>
@@ -567,9 +607,6 @@ function renderHomeScreen() {
             <p class="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">${isArabic ? 'تطبيق احترافي لتطبيق الباتشات على ملفات النظام لأجهزة iPhone و iPad، يتيح العمل على الملفات المختلفة بسهولة وأمان.' : 'Haafedk Patcher is a professional tool for applying patches to iPhone and iPad system files with ease and safety.'}</p>
           </div>
           <div class="flex gap-2">
-            <a href="${patcherDownloadUrl}" target="_blank" rel="noopener noreferrer" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs">
-              ${isArabic ? 'تحميل مباشر' : 'Direct Download'}
-            </a>
             <button onclick="setTab('patcher')" class="border border-slate-700 text-slate-300 font-bold px-3 py-2 rounded-xl text-xs">
               ${isArabic ? 'التفاصيل' : 'Details'}
             </button>
@@ -584,7 +621,7 @@ function renderHomeScreen() {
           <p class="text-xs text-slate-400 mt-0.5">${isArabic ? 'اشتراكات مرنة بأسعار تنافسية مع دعم كامل' : 'Flexible plans with full support'}</p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-4xl mx-auto">
           <!-- 6 Months -->
           <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 flex flex-col justify-between">
             <div>
@@ -606,7 +643,7 @@ function renderHomeScreen() {
                 </li>
               </ul>
             </div>
-            <button onclick="currentUser ? (currentUser.subscriptionPlan='MONTHLY 6', setTab('dashboard')) : (showAuthModal=true, authIsRegister=true, render())" class="mt-6 w-full bg-slate-800 hover:bg-sky-600 text-white font-bold py-2.5 rounded-xl transition text-xs sm:text-sm">
+            <button onclick="startSubscription('MONTHLY 6')" class="mt-6 w-full bg-slate-800 hover:bg-sky-600 text-white font-bold py-2.5 rounded-xl transition text-xs sm:text-sm">
               ${isArabic ? 'اشترك الآن' : 'Subscribe Now'}
             </button>
           </div>
@@ -614,7 +651,7 @@ function renderHomeScreen() {
           <!-- 1 Year -->
           <div class="rounded-2xl border-2 border-sky-500 bg-slate-900/80 p-5 flex flex-col justify-between shadow-xl">
             <div>
-              <div class="text-sky-400 font-black text-xs uppercase tracking-wider">YEAR (الأكثر توفيراً)</div>
+              <div class="text-sky-400 font-black text-xs uppercase tracking-wider">YEAR</div>
               <div class="text-2xl sm:text-3xl font-black text-white mt-1">15000 دج <span class="text-xs font-semibold text-slate-400">/ 365 ${isArabic ? 'يوم' : 'Days'}</span></div>
               <div class="my-4 border-t border-slate-800"></div>
               <ul class="space-y-2 text-xs text-slate-300">
@@ -632,7 +669,41 @@ function renderHomeScreen() {
                 </li>
               </ul>
             </div>
-            <button onclick="currentUser ? (currentUser.subscriptionPlan='YEAR', setTab('dashboard')) : (showAuthModal=true, authIsRegister=true, render())" class="mt-6 w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl transition text-xs sm:text-sm shadow-lg shadow-sky-600/30">
+            <button onclick="startSubscription('YEAR')" class="mt-6 w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl transition text-xs sm:text-sm shadow-lg shadow-sky-600/30">
+              ${isArabic ? 'اشترك الآن' : 'Subscribe Now'}
+            </button>
+          </div>
+
+          <!-- 2 Years -->
+          <div class="rounded-2xl border-2 border-sky-500 bg-slate-900/80 p-5 flex flex-col justify-between shadow-xl">
+            <div>
+              <div class="text-sky-400 font-black text-xs uppercase tracking-wider">${isArabic ? 'سنتين' : 'TWO YEARS'}</div>
+              <div class="text-2xl sm:text-3xl font-black text-white mt-1">29,000 دج <span class="text-xs font-semibold text-slate-400">/ 730 ${isArabic ? 'يوم' : 'Days'}</span></div>
+              <div class="my-4 border-t border-slate-800"></div>
+              <ul class="space-y-2 text-xs text-slate-300">
+                <li class="flex items-start space-x-2 rtl:space-x-reverse"><span class="text-emerald-400 font-bold">✓</span><span>${isArabic ? 'دعم كامل طوال فترة الاشتراك' : 'Full support throughout the subscription'}</span></li>
+                <li class="flex items-start space-x-2 rtl:space-x-reverse"><span class="text-emerald-400 font-bold">✓</span><span>${isArabic ? 'ملف مخصص لجهازك' : 'Custom profile for your device'}</span></li>
+                <li class="flex items-start space-x-2 rtl:space-x-reverse"><span class="text-emerald-400 font-bold">✓</span><span>${isArabic ? 'إمكانية تغيير الكمبيوتر كل ساعة' : 'Hourly PC switching'}</span></li>
+              </ul>
+            </div>
+            <button onclick="startSubscription('TWO YEARS')" class="mt-6 w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl transition text-xs sm:text-sm shadow-lg shadow-sky-600/30">
+              ${isArabic ? 'اشترك الآن' : 'Subscribe Now'}
+            </button>
+          </div>
+
+          <!-- Lifetime -->
+          <div class="rounded-2xl border border-amber-500/50 bg-slate-900/70 p-5 flex flex-col justify-between">
+            <div>
+              <div class="text-amber-400 font-black text-xs uppercase tracking-wider">${isArabic ? 'مدى الحياة' : 'LIFETIME'}</div>
+              <div class="text-2xl sm:text-3xl font-black text-white mt-1">90,000 دج <span class="text-xs font-semibold text-slate-400">/ ${isArabic ? 'مدى الحياة' : 'Lifetime'}</span></div>
+              <div class="my-4 border-t border-slate-800"></div>
+              <ul class="space-y-2 text-xs text-slate-300">
+                <li class="flex items-start space-x-2 rtl:space-x-reverse"><span class="text-emerald-400 font-bold">✓</span><span>${isArabic ? 'تفعيل دائم دون تاريخ انتهاء' : 'Permanent activation with no expiry'}</span></li>
+                <li class="flex items-start space-x-2 rtl:space-x-reverse"><span class="text-emerald-400 font-bold">✓</span><span>${isArabic ? 'دعم كامل وملف مخصص لجهازك' : 'Full support and a custom device profile'}</span></li>
+                <li class="flex items-start space-x-2 rtl:space-x-reverse"><span class="text-emerald-400 font-bold">✓</span><span>${isArabic ? 'إمكانية تغيير الكمبيوتر كل ساعة' : 'Hourly PC switching'}</span></li>
+              </ul>
+            </div>
+            <button onclick="startSubscription('LIFETIME')" class="mt-6 w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2.5 rounded-xl transition text-xs sm:text-sm">
               ${isArabic ? 'اشترك الآن' : 'Subscribe Now'}
             </button>
           </div>
@@ -755,11 +826,6 @@ function renderPatcherScreen() {
         <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
           ${isArabic ? 'الأداة مدمجة مع نظام هفيدك Premium ومجانية للأعضاء المفعّلين.' : 'The tool is integrated with Haafedk Premium and is free for active members.'}
         </p>
-        <div class="flex flex-wrap gap-3 pt-1">
-          <a href="${patcherDownloadUrl}" target="_blank" rel="noopener noreferrer" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs transition">
-            ${isArabic ? 'تحميل Haafedk Patcher مباشرة' : 'Download Haafedk Patcher'}
-          </a>
-        </div>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -789,7 +855,7 @@ function renderPricingScreen() {
         <p class="text-xs sm:text-sm text-slate-400 mt-1">${isArabic ? 'اشتراكات مرنة بأسعار تنافسية مع دعم كامل' : 'Flexible plans with full support'}</p>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <!-- 6 Months -->
         <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 flex flex-col justify-between">
           <div>
@@ -811,7 +877,7 @@ function renderPricingScreen() {
               </li>
             </ul>
           </div>
-          <button onclick="currentUser ? (currentUser.subscriptionPlan='MONTHLY 6', setTab('dashboard')) : (showAuthModal=true, authIsRegister=true, render())" class="mt-6 w-full bg-slate-800 hover:bg-sky-600 text-white font-bold py-2.5 rounded-xl transition text-xs sm:text-sm">
+          <button onclick="startSubscription('MONTHLY 6')" class="mt-6 w-full bg-slate-800 hover:bg-sky-600 text-white font-bold py-2.5 rounded-xl transition text-xs sm:text-sm">
             ${isArabic ? 'اشترك الآن' : 'Subscribe Now'}
           </button>
         </div>
@@ -819,7 +885,7 @@ function renderPricingScreen() {
         <!-- 1 Year -->
         <div class="rounded-2xl border-2 border-sky-500 bg-slate-900/80 p-5 flex flex-col justify-between shadow-xl">
           <div>
-            <div class="text-sky-400 font-black text-xs uppercase tracking-wider">YEAR (الأكثر توفيراً)</div>
+            <div class="text-sky-400 font-black text-xs uppercase tracking-wider">YEAR</div>
             <div class="text-2xl sm:text-3xl font-black text-white mt-1">15000 دج <span class="text-xs font-semibold text-slate-400">/ 365 ${isArabic ? 'يوم' : 'Days'}</span></div>
             <div class="my-4 border-t border-slate-800"></div>
             <ul class="space-y-2 text-xs text-slate-300">
@@ -837,7 +903,41 @@ function renderPricingScreen() {
               </li>
             </ul>
           </div>
-          <button onclick="currentUser ? (currentUser.subscriptionPlan='YEAR', setTab('dashboard')) : (showAuthModal=true, authIsRegister=true, render())" class="mt-6 w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl transition text-xs sm:text-sm shadow-lg shadow-sky-600/30">
+          <button onclick="startSubscription('YEAR')" class="mt-6 w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl transition text-xs sm:text-sm shadow-lg shadow-sky-600/30">
+            ${isArabic ? 'اشترك الآن' : 'Subscribe Now'}
+          </button>
+        </div>
+
+        <!-- 2 Years -->
+        <div class="rounded-2xl border-2 border-sky-500 bg-slate-900/80 p-5 flex flex-col justify-between shadow-xl">
+          <div>
+            <div class="text-sky-400 font-black text-xs uppercase tracking-wider">${isArabic ? 'سنتين' : 'TWO YEARS'}</div>
+            <div class="text-2xl sm:text-3xl font-black text-white mt-1">29,000 دج <span class="text-xs font-semibold text-slate-400">/ 730 ${isArabic ? 'يوم' : 'Days'}</span></div>
+            <div class="my-4 border-t border-slate-800"></div>
+            <ul class="space-y-2 text-xs text-slate-300">
+              <li class="flex items-start space-x-2 rtl:space-x-reverse"><span class="text-emerald-400 font-bold">✓</span><span>${isArabic ? 'دعم كامل طوال فترة الاشتراك' : 'Full support throughout the subscription'}</span></li>
+              <li class="flex items-start space-x-2 rtl:space-x-reverse"><span class="text-emerald-400 font-bold">✓</span><span>${isArabic ? 'ملف مخصص لجهازك' : 'Custom profile for your device'}</span></li>
+              <li class="flex items-start space-x-2 rtl:space-x-reverse"><span class="text-emerald-400 font-bold">✓</span><span>${isArabic ? 'إمكانية تغيير الكمبيوتر كل ساعة' : 'Hourly PC switching'}</span></li>
+            </ul>
+          </div>
+          <button onclick="startSubscription('TWO YEARS')" class="mt-6 w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl transition text-xs sm:text-sm shadow-lg shadow-sky-600/30">
+            ${isArabic ? 'اشترك الآن' : 'Subscribe Now'}
+          </button>
+        </div>
+
+        <!-- Lifetime -->
+        <div class="rounded-2xl border border-amber-500/50 bg-slate-900/70 p-5 flex flex-col justify-between">
+          <div>
+            <div class="text-amber-400 font-black text-xs uppercase tracking-wider">${isArabic ? 'مدى الحياة' : 'LIFETIME'}</div>
+            <div class="text-2xl sm:text-3xl font-black text-white mt-1">90,000 دج <span class="text-xs font-semibold text-slate-400">/ ${isArabic ? 'مدى الحياة' : 'Lifetime'}</span></div>
+            <div class="my-4 border-t border-slate-800"></div>
+            <ul class="space-y-2 text-xs text-slate-300">
+              <li class="flex items-start space-x-2 rtl:space-x-reverse"><span class="text-emerald-400 font-bold">✓</span><span>${isArabic ? 'تفعيل دائم دون تاريخ انتهاء' : 'Permanent activation with no expiry'}</span></li>
+              <li class="flex items-start space-x-2 rtl:space-x-reverse"><span class="text-emerald-400 font-bold">✓</span><span>${isArabic ? 'دعم كامل وملف مخصص لجهازك' : 'Full support and a custom device profile'}</span></li>
+              <li class="flex items-start space-x-2 rtl:space-x-reverse"><span class="text-emerald-400 font-bold">✓</span><span>${isArabic ? 'إمكانية تغيير الكمبيوتر كل ساعة' : 'Hourly PC switching'}</span></li>
+            </ul>
+          </div>
+          <button onclick="startSubscription('LIFETIME')" class="mt-6 w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2.5 rounded-xl transition text-xs sm:text-sm">
             ${isArabic ? 'اشترك الآن' : 'Subscribe Now'}
           </button>
         </div>
@@ -902,7 +1002,7 @@ function renderDashboardScreen() {
             </div>
             <div class="rounded-xl border border-sky-500/30 bg-sky-500/10 p-3">
               <div class="text-sky-300 text-[10px]">${isArabic ? 'نهاية الاشتراك:' : 'Expiry:'}</div>
-              <div class="font-black text-sky-400 mt-0.5 text-sm">${currentUser.endDate || '2027-03-29'}</div>
+              <div class="font-black text-sky-400 mt-0.5 text-sm">${currentUser.subscriptionPlan === 'LIFETIME' ? (isArabic ? 'مدى الحياة' : 'Lifetime') : escapeHtml(currentUser.endDate || '—')}</div>
             </div>
           </div>
 
@@ -916,7 +1016,7 @@ function renderDashboardScreen() {
             </button>
           </div>
 
-          <a href="${patcherDownloadUrl}" target="_blank" rel="noopener noreferrer" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl text-xs transition text-center block">
+          <a href="${toolDownloadUrl}" target="_blank" rel="noopener noreferrer" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl text-xs transition text-center block">
             ${isArabic ? 'تحميل أداة هفيدك iCloud Tool v4.8.2' : 'Download Tool v4.8.2'}
           </a>
         </div>
@@ -967,21 +1067,16 @@ function renderDashboardScreen() {
 
             <div>
               <label class="block font-bold text-slate-300 mb-1.5">${isArabic ? 'اختر الاشتراك:' : 'Select Plan:'}</label>
-              <div class="grid grid-cols-2 gap-2">
-                <label class="rounded-xl border border-slate-700 bg-slate-800/50 p-2.5 flex items-center justify-between cursor-pointer hover:border-sky-500">
-                  <div class="flex items-center space-x-2 rtl:space-x-reverse">
-                    <input type="radio" name="plan" value="MONTHLY 6" checked class="text-sky-500">
-                    <span class="font-bold text-white">6 أشهر</span>
-                  </div>
-                  <span class="text-sky-400 font-black">8000 دج</span>
-                </label>
-                <label class="rounded-xl border border-slate-700 bg-slate-800/50 p-2.5 flex items-center justify-between cursor-pointer hover:border-sky-500">
-                  <div class="flex items-center space-x-2 rtl:space-x-reverse">
-                    <input type="radio" name="plan" value="YEAR" class="text-sky-500">
-                    <span class="font-bold text-white">سنة</span>
-                  </div>
-                  <span class="text-sky-400 font-black">15000 دج</span>
-                </label>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                ${subscriptionPlans.map((plan) => `
+                  <label class="rounded-xl border border-slate-700 bg-slate-800/50 p-2.5 flex items-center justify-between cursor-pointer hover:border-sky-500">
+                    <div class="flex items-center space-x-2 rtl:space-x-reverse">
+                      <input type="radio" name="plan" value="${plan.value}" ${selectedSubscriptionPlan === plan.value ? 'checked' : ''} onchange="rememberSubscriptionPlan(this.value)" class="text-sky-500">
+                      <span class="font-bold text-white">${isArabic ? plan.nameAr : plan.nameEn}${plan.value === 'LIFETIME' ? '' : ` · ${isArabic ? plan.durationAr : plan.durationEn}`}</span>
+                    </div>
+                    <span class="text-sky-400 font-black">${subscriptionPlanPrice(plan.value)}</span>
+                  </label>
+                `).join('')}
               </div>
             </div>
 
@@ -1083,7 +1178,7 @@ function renderAdminScreen() {
               </div>
               <div>
                 <span class="text-slate-500 text-[10px] block font-sans">${isArabic ? 'الخطة:' : 'Plan:'}</span>
-                <span class="text-amber-400">${escapeHtml(u.subscriptionPlan)}</span>
+                <span class="text-amber-400">${escapeHtml(subscriptionPlanName(u.subscriptionPlan))}</span>
               </div>
               <div>
                 <span class="text-slate-500 text-[10px] block font-sans">${isArabic ? 'النوع:' : 'Type:'}</span>
@@ -1093,7 +1188,7 @@ function renderAdminScreen() {
 
             ${u.startDate ? `
               <div class="text-[11px] text-emerald-400 font-bold bg-emerald-500/10 p-2 rounded">
-                ${isArabic ? 'الاشتراك:' : 'Period:'} ${escapeHtml(u.startDate)} ⬅ ${escapeHtml(u.endDate)}
+                ${isArabic ? 'الاشتراك:' : 'Period:'} ${escapeHtml(u.startDate)} ⬅ ${u.subscriptionPlan === 'LIFETIME' ? (isArabic ? 'مدى الحياة' : 'Lifetime') : escapeHtml(u.endDate || '—')}
               </div>
             ` : ''}
 
@@ -1107,16 +1202,22 @@ function renderAdminScreen() {
             ` : ''}
 
             <div class="flex flex-wrap gap-2 pt-1 border-t border-slate-800">
-              <button onclick="adminActivate('${u.id}', 6)" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-2.5 py-1.5 rounded text-[11px]">
+              <button onclick="adminActivate('${u.id}', 'MONTHLY 6')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-2.5 py-1.5 rounded text-[11px]">
                 ${isArabic ? 'تفعيل 6 أشهر' : 'Act 6M'}
               </button>
-              <button onclick="adminActivate('${u.id}', 12)" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-2.5 py-1.5 rounded text-[11px]">
+              <button onclick="adminActivate('${u.id}', 'YEAR')" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-2.5 py-1.5 rounded text-[11px]">
                 ${isArabic ? 'تفعيل سنة' : 'Act 1Yr'}
+              </button>
+              <button onclick="adminActivate('${u.id}', 'TWO YEARS')" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-2.5 py-1.5 rounded text-[11px]">
+                ${isArabic ? 'تفعيل 730 يوم' : 'Act 730 days'}
+              </button>
+              <button onclick="adminActivate('${u.id}', 'LIFETIME')" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-2.5 py-1.5 rounded text-[11px]">
+                ${isArabic ? 'تفعيل مدى الحياة' : 'Act Lifetime'}
               </button>
               <button onclick="adminSuspend('${u.id}')" class="bg-rose-600 hover:bg-rose-500 text-white font-bold px-2.5 py-1.5 rounded text-[11px]">
                 ${isArabic ? 'توقيف' : 'Suspend'}
               </button>
-              <button onclick="adminRenew('${u.id}', ${u.subscriptionPlan.includes('YEAR') ? 365 : 180})" class="border border-sky-500 text-sky-400 font-bold px-2.5 py-1.5 rounded text-[11px]">
+              <button onclick="adminRenew('${u.id}', '${normalizedSubscriptionPlan(u.subscriptionPlan)}')" class="border border-sky-500 text-sky-400 font-bold px-2.5 py-1.5 rounded text-[11px]">
                 ${isArabic ? 'تجديد' : 'Renew'}
               </button>
             </div>
@@ -1211,7 +1312,7 @@ function renderReceiptModal() {
         
         <div class="rounded-xl border border-slate-800 bg-slate-950 p-5 text-center space-y-2">
           <div class="font-mono font-bold text-sky-400">${escapeHtml(previewReceiptUser.receiptFileName || 'recu.jpg')}</div>
-          <div class="text-emerald-400 font-bold">${isArabic ? 'المبلغ: ' : 'Amount: '} ${previewReceiptUser.subscriptionPlan.includes('YEAR') ? '15000 دج' : '8000 دج'}</div>
+          <div class="text-emerald-400 font-bold">${isArabic ? 'المبلغ: ' : 'Amount: '} ${subscriptionPlanPrice(previewReceiptUser.subscriptionPlan)}</div>
           <div class="text-slate-400">${isArabic ? 'تاريخ العملية: ' : 'Date: '} ${previewReceiptUser.registrationDate}</div>
         </div>
 

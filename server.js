@@ -13,6 +13,12 @@ import { Pool } from 'pg';
 const app = express();
 const port = Number(process.env.PORT || 5000);
 const isProduction = process.env.NODE_ENV === 'production';
+const subscriptionPlanDays = new Map([
+  ['MONTHLY 6', 180],
+  ['YEAR', 365],
+  ['TWO YEARS', 730],
+  ['LIFETIME', null]
+]);
 function normalizeOrigin(value) {
   try {
     return new URL(value).origin;
@@ -229,7 +235,7 @@ app.patch('/api/account/activation', requireUser, async (req, res, next) => {
   const plan = String(req.body?.subscriptionPlan || '');
   const receiptFileName = String(req.body?.receiptFileName || '').replace(/[\\/\u0000-\u001f]/g, '').slice(0, 180) || null;
   if (!fullName || !phone || !['لنفسي', 'شخص آخر'].includes(beneficiaryType) ||
-      !['MONTHLY 6', 'YEAR'].includes(plan)) {
+      !subscriptionPlanDays.has(plan)) {
     return res.status(400).json({ error: 'تحقق من الاسم والهاتف والخطة.' });
   }
   try {
@@ -267,23 +273,23 @@ app.patch('/api/admin/users/:id', requireAdmin, async (req, res, next) => {
         [req.params.id]
       );
     } else if (action === 'activate' || action === 'renew') {
-      const months = Number(req.body?.months);
-      if (![6, 12].includes(months)) {
-        return res.status(400).json({ error: 'اختر 6 أو 12 شهراً.' });
+      const plan = String(req.body?.plan || '');
+      if (!subscriptionPlanDays.has(plan)) {
+        return res.status(400).json({ error: 'اختر خطة اشتراك صحيحة.' });
       }
-      const days = months === 6 ? 180 : 365;
       const now = new Date();
-      const endDate = new Date(now);
-      endDate.setUTCDate(endDate.getUTCDate() + days);
+      const durationDays = subscriptionPlanDays.get(plan);
+      const endDate = durationDays === null ? null : new Date(now);
+      if (endDate) endDate.setUTCDate(endDate.getUTCDate() + durationDays);
       const licenseKey = `HFD-${crypto.randomBytes(6).toString('hex').toUpperCase()}`;
       result = await pool.query(
         `UPDATE users SET status = 'ACTIVE', subscription_plan = $1,
          start_date = $2, end_date = $3, license_key = $4, updated_at = NOW()
          WHERE id = $5 AND role = 'USER' RETURNING *`,
         [
-          months === 6 ? 'MONTHLY 6' : 'YEAR',
+          plan,
           now.toISOString().slice(0, 10),
-          endDate.toISOString().slice(0, 10),
+          endDate ? endDate.toISOString().slice(0, 10) : null,
           licenseKey,
           req.params.id
         ]
