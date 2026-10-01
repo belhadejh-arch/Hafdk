@@ -20,7 +20,7 @@ const deviceCounts = Object.fromEntries(
   ])
 );
 const totalSupportedDevices = supportedDevices.length;
-const patcherDownloadUrl = 'https://drive.google.com/uc?export=download&id=1y8YnlQYAtOmwea7RyKdagxEBeD3VTFTv';
+const patcherDownloadUrl = 'https://drive.google.com/file/d/1y8YnlQYAtOmwea7RyKdagxEBeD3VTFTv/view?usp=drivesdk';
 
 // Inline HTML handlers execute outside this ES module's lexical scope.
 Object.defineProperties(window, {
@@ -448,10 +448,10 @@ function renderHomeScreen() {
 
         <!-- CTA Buttons -->
         <div class="flex flex-col sm:flex-row items-center justify-center gap-3 mb-6">
-          <button onclick="showToast(isArabic ? 'جارٍ بدء تحميل نسخة Windows...' : 'Downloading Windows tool...')" class="w-full sm:w-auto bg-sky-600 hover:bg-sky-500 text-white font-bold px-6 py-3 rounded-xl shadow-lg shadow-sky-600/30 flex items-center justify-center space-x-2 rtl:space-x-reverse transition text-sm">
+          <a href="${patcherDownloadUrl}" target="_blank" rel="noopener noreferrer" class="w-full sm:w-auto bg-sky-600 hover:bg-sky-500 text-white font-bold px-6 py-3 rounded-xl shadow-lg shadow-sky-600/30 flex items-center justify-center space-x-2 rtl:space-x-reverse transition text-sm">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
             <span>${isArabic ? 'تحميل الأداة الآن' : 'Download Tool Now'}</span>
-          </button>
+          </a>
 
           <button onclick="setTab('pricing')" class="w-full sm:w-auto border border-sky-500 text-sky-400 hover:bg-sky-500/10 font-bold px-6 py-3 rounded-xl transition text-sm">
             ${isArabic ? 'عرض الأسعار' : 'View Pricing'}
@@ -916,9 +916,9 @@ function renderDashboardScreen() {
             </button>
           </div>
 
-          <button onclick="showToast(isArabic ? 'جارٍ تحميل أداة هفيدك iCloud Tool...' : 'Downloading tool...')" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl text-xs transition">
+          <a href="${patcherDownloadUrl}" target="_blank" rel="noopener noreferrer" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl text-xs transition text-center block">
             ${isArabic ? 'تحميل أداة هفيدك iCloud Tool v4.8.2' : 'Download Tool v4.8.2'}
-          </button>
+          </a>
         </div>
       ` : ''}
 
