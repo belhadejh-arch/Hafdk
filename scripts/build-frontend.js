@@ -8,4 +8,5 @@ await fs.rm(outputDir, { recursive: true, force: true });
 await fs.mkdir(outputDir, { recursive: true });
 await fs.cp(path.join(projectDir, 'public'), outputDir, { recursive: true });
 await fs.copyFile(path.join(projectDir, 'devicesData.js'), path.join(outputDir, 'devicesData.js'));
+await fs.cp(path.join(projectDir, 'data'), path.join(outputDir, 'data'), { recursive: true });
 console.log('Vercel static frontend built in dist/.');

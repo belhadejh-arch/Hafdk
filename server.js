@@ -439,6 +439,9 @@ app.use('/api', (_req, res) => res.status(404).json({ error: 'المسار غي�
 app.get('/devicesData.js', (_req, res) => {
   res.sendFile(path.join(projectDir, 'devicesData.js'));
 });
+app.get('/data/supportedDevices.json', (_req, res) => {
+  res.sendFile(path.join(projectDir, 'data', 'supportedDevices.json'));
+});
 app.use(express.static(path.join(projectDir, 'public')));
 app.get(/.*/, (_req, res) => res.sendFile(path.join(projectDir, 'public', 'index.html')));
 

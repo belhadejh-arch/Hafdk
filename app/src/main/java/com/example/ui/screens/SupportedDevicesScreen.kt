@@ -48,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -66,12 +67,16 @@ import com.example.ui.theme.WarningOrange
 @Composable
 fun SupportedDevicesScreen() {
     val isArabic = AppState.language == AppLanguage.ARABIC
+    val context = LocalContext.current
+    val devices = remember(context) {
+        DeviceCatalog.devices + DeviceCatalog.loadAdditionalDevices(context)
+    }
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf(DeviceType.ALL) }
 
     // Filter devices based on category and query (name, identifier, A-code, iOS version)
-    val filteredDevices = remember(selectedCategory, searchQuery) {
-        DeviceCatalog.devices.filter { device ->
+    val filteredDevices = remember(selectedCategory, searchQuery, devices) {
+        devices.filter { device ->
             val matchCategory = when (selectedCategory) {
                 DeviceType.ALL -> true
                 DeviceType.IPHONE -> device.category == DeviceType.IPHONE

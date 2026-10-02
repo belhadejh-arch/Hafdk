@@ -1,5 +1,8 @@
 package com.example.data
 
+import android.content.Context
+import org.json.JSONArray
+
 object DeviceCatalog {
     val totalUniqueCount = 131
     val totalActivations = 2007
@@ -7,6 +10,55 @@ object DeviceCatalog {
     val totalIpads = 72
     val totalIpods = 3
     val lastUpdateDate = "2026-09-30"
+
+    fun loadAdditionalDevices(context: Context): List<SupportedDevice> {
+        val catalogJson = context.assets.open("supportedDevices.json")
+            .bufferedReader()
+            .use { it.readText() }
+        val entries = JSONArray(catalogJson)
+        val knownIdentifiers = devices.mapTo(mutableSetOf()) { it.identifier }
+
+        return buildList {
+            for (index in 0 until entries.length()) {
+                val entry = entries.getJSONObject(index)
+                val identifier = entry.getString("identifier")
+                if (!knownIdentifiers.add(identifier)) continue
+
+                val category = when (entry.getString("category")) {
+                    "iphone" -> DeviceType.IPHONE
+                    "ipad" -> DeviceType.IPAD
+                    else -> DeviceType.IPOD
+                }
+                val hardwareCodesJson = entry.getJSONArray("hardwareCodes")
+                val hardwareCodes = List(hardwareCodesJson.length()) { codeIndex ->
+                    hardwareCodesJson.getString(codeIndex)
+                }
+                val iosVersionsJson = entry.getJSONArray("iosVersions")
+                val iosVersions = List(iosVersionsJson.length()) { versionIndex ->
+                    val version = iosVersionsJson.getJSONObject(versionIndex)
+                    val buildsJson = version.getJSONArray("builds")
+                    IosVersionGroup(
+                        major = version.getString("major"),
+                        builds = List(buildsJson.length()) { buildIndex ->
+                            buildsJson.getString(buildIndex)
+                        }
+                    )
+                }
+
+                add(
+                    SupportedDevice(
+                        id = entry.getString("id"),
+                        name = entry.getString("name"),
+                        identifier = identifier,
+                        isNew = entry.optBoolean("isNew", false),
+                        hardwareCodes = hardwareCodes,
+                        category = category,
+                        iosVersions = iosVersions
+                    )
+                )
+            }
+        }
+    }
 
     val devices: List<SupportedDevice> = listOf(
         // iPhones

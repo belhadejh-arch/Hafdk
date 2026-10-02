@@ -1,4 +1,6 @@
-export const supportedDevices = [
+import additionalSupportedDevices from './data/supportedDevices.json' with { type: 'json' };
+
+const existingSupportedDevices = [
   // iPhones
   {
     id: "ip7p_94",
@@ -518,4 +520,10 @@ export const supportedDevices = [
       { major: "iOS 9", builds: ["9.3.2 (13F69)", "9.3.5 (13G36)"] }
     ]
   }
+];
+
+const existingIdentifiers = new Set(existingSupportedDevices.map((device) => device.identifier));
+export const supportedDevices = [
+  ...existingSupportedDevices,
+  ...additionalSupportedDevices.filter((device) => !existingIdentifiers.has(device.identifier))
 ];

@@ -12,6 +12,8 @@ android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
+  sourceSets.getByName("main").assets.srcDir(rootProject.projectDir.resolve("data"))
+
   defaultConfig {
     applicationId = "com.example"
     minSdk = 24
