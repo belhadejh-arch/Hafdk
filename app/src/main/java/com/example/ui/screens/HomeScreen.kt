@@ -521,7 +521,7 @@ fun HomeScreen(
             ) {
                 // 6 Months Plan
                 PlanCard(
-                    title = "MONTHLY 6",
+                    title = if (isArabic) "6 أشهر" else "6 Months",
                     duration = if (isArabic) "180 يوم (6 أشهر)" else "180 Days (6 Months)",
                     price = "8000 دج",
                     isFeatured = false,
@@ -531,7 +531,7 @@ fun HomeScreen(
 
                 // 1 Year Plan
                 PlanCard(
-                    title = "YEAR",
+                    title = if (isArabic) "سنة" else "1 year",
                     duration = if (isArabic) "365 يوم (سنة كاملة)" else "365 Days (Full Year)",
                     price = "15000 دج",
                     isFeatured = true,

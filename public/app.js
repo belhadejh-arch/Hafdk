@@ -220,6 +220,8 @@ window.handleRegister = async function(username, email, password) {
     currentUser = user;
     showAuthModal = false;
     activeTab = 'dashboard';
+    isSidebarOpen = false;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     showToast(isArabic ? 'تم إنشاء الحساب وتسجيل دخولك مباشرة' : 'Account created; you are now signed in');
   } catch (error) {
     alert(error.message);
@@ -528,6 +530,12 @@ function render() {
       ${activeTab === 'admin' ? (isAdmin ? renderAdminScreen() : renderAccessDeniedScreen()) : ''}
     </main>
 
+    <footer class="mt-8 border-t ${isDarkMode ? 'border-slate-800' : 'border-slate-200'} px-4 py-5 text-center text-xs text-slate-400">
+      <a href="https://www.facebook.com/share/1EUyvGbsbr/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" class="hover:text-sky-400 transition">
+        جميع الحقوق محفوظة 2026 لمنصة SMART DEV
+      </a>
+    </footer>
+
     <!-- TOAST NOTIFICATION -->
     ${toastMessage ? `
       <div class="fixed bottom-5 inset-x-0 flex justify-center z-50 pointer-events-none px-4">
@@ -703,7 +711,7 @@ function renderHomeScreen() {
           <!-- 6 Months -->
           <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 flex flex-col justify-between">
             <div>
-              <div class="text-sky-400 font-black text-xs uppercase tracking-wider">MONTHLY 6</div>
+              <div class="text-sky-400 font-black text-xs uppercase tracking-wider">${isArabic ? '6 أشهر' : '6 months'}</div>
               <div class="text-2xl sm:text-3xl font-black text-white mt-1">8000 دج <span class="text-xs font-semibold text-slate-400">/ 180 ${isArabic ? 'يوم' : 'Days'}</span></div>
               <div class="my-4 border-t border-slate-800"></div>
               <ul class="space-y-2 text-xs text-slate-300">
@@ -715,10 +723,6 @@ function renderHomeScreen() {
                   <span class="text-emerald-400 font-bold">✓</span>
                   <span>إنشاء ملف خاص لجهازك بشكل مخصص (Custom profile)</span>
                 </li>
-                <li class="flex items-start space-x-2 rtl:space-x-reverse">
-                  <span class="text-emerald-400 font-bold">✓</span>
-                  <span>إمكانية تغيير الكمبيوتر كل ساعة (Hourly PC switch)</span>
-                </li>
               </ul>
             </div>
             <button onclick="startSubscription('MONTHLY 6')" class="mt-6 w-full bg-slate-800 hover:bg-sky-600 text-white font-bold py-2.5 rounded-xl transition text-xs sm:text-sm">
@@ -729,7 +733,7 @@ function renderHomeScreen() {
           <!-- 1 Year -->
           <div class="rounded-2xl border-2 border-sky-500 bg-slate-900/80 p-5 flex flex-col justify-between shadow-xl">
             <div>
-              <div class="text-sky-400 font-black text-xs uppercase tracking-wider">YEAR</div>
+              <div class="text-sky-400 font-black text-xs uppercase tracking-wider">${isArabic ? 'سنة' : '1 year'}</div>
               <div class="text-2xl sm:text-3xl font-black text-white mt-1">15000 دج <span class="text-xs font-semibold text-slate-400">/ 365 ${isArabic ? 'يوم' : 'Days'}</span></div>
               <div class="my-4 border-t border-slate-800"></div>
               <ul class="space-y-2 text-xs text-slate-300">
@@ -740,10 +744,6 @@ function renderHomeScreen() {
                 <li class="flex items-start space-x-2 rtl:space-x-reverse">
                   <span class="text-emerald-400 font-bold">✓</span>
                   <span>إنشاء ملف خاص لجهازك بشكل مخصص</span>
-                </li>
-                <li class="flex items-start space-x-2 rtl:space-x-reverse">
-                  <span class="text-emerald-400 font-bold">✓</span>
-                  <span>إمكانية تغيير الكمبيوتر كل ساعة</span>
                 </li>
               </ul>
             </div>
@@ -761,7 +761,6 @@ function renderHomeScreen() {
               <ul class="space-y-2 text-xs text-slate-300">
                 <li class="flex items-start space-x-2 rtl:space-x-reverse"><span class="text-emerald-400 font-bold">✓</span><span>${isArabic ? 'دعم كامل طوال فترة الاشتراك' : 'Full support throughout the subscription'}</span></li>
                 <li class="flex items-start space-x-2 rtl:space-x-reverse"><span class="text-emerald-400 font-bold">✓</span><span>${isArabic ? 'ملف مخصص لجهازك' : 'Custom profile for your device'}</span></li>
-                <li class="flex items-start space-x-2 rtl:space-x-reverse"><span class="text-emerald-400 font-bold">✓</span><span>${isArabic ? 'إمكانية تغيير الكمبيوتر كل ساعة' : 'Hourly PC switching'}</span></li>
               </ul>
             </div>
             <button onclick="startSubscription('TWO YEARS')" class="mt-6 w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl transition text-xs sm:text-sm shadow-lg shadow-sky-600/30">
@@ -778,7 +777,6 @@ function renderHomeScreen() {
               <ul class="space-y-2 text-xs text-slate-300">
                 <li class="flex items-start space-x-2 rtl:space-x-reverse"><span class="text-emerald-400 font-bold">✓</span><span>${isArabic ? 'تفعيل دائم دون تاريخ انتهاء' : 'Permanent activation with no expiry'}</span></li>
                 <li class="flex items-start space-x-2 rtl:space-x-reverse"><span class="text-emerald-400 font-bold">✓</span><span>${isArabic ? 'دعم كامل وملف مخصص لجهازك' : 'Full support and a custom device profile'}</span></li>
-                <li class="flex items-start space-x-2 rtl:space-x-reverse"><span class="text-emerald-400 font-bold">✓</span><span>${isArabic ? 'إمكانية تغيير الكمبيوتر كل ساعة' : 'Hourly PC switching'}</span></li>
               </ul>
             </div>
             <button onclick="startSubscription('LIFETIME')" class="mt-6 w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2.5 rounded-xl transition text-xs sm:text-sm">
@@ -937,7 +935,7 @@ function renderPricingScreen() {
         <!-- 6 Months -->
         <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 flex flex-col justify-between">
           <div>
-            <div class="text-sky-400 font-black text-xs uppercase tracking-wider">MONTHLY 6</div>
+            <div class="text-sky-400 font-black text-xs uppercase tracking-wider">${isArabic ? '6 أشهر' : '6 months'}</div>
             <div class="text-2xl sm:text-3xl font-black text-white mt-1">8000 دج <span class="text-xs font-semibold text-slate-400">/ 180 ${isArabic ? 'يوم' : 'Days'}</span></div>
             <div class="my-4 border-t border-slate-800"></div>
             <ul class="space-y-2 text-xs text-slate-300">
@@ -949,10 +947,6 @@ function renderPricingScreen() {
                 <span class="text-emerald-400 font-bold">✓</span>
                 <span>إنشاء ملف خاص لجهازك بشكل مخصص (Custom profile)</span>
               </li>
-              <li class="flex items-start space-x-2 rtl:space-x-reverse">
-                <span class="text-emerald-400 font-bold">✓</span>
-                <span>إمكانية تغيير الكمبيوتر كل ساعة (Hourly PC switch)</span>
-              </li>
             </ul>
           </div>
           <button onclick="startSubscription('MONTHLY 6')" class="mt-6 w-full bg-slate-800 hover:bg-sky-600 text-white font-bold py-2.5 rounded-xl transition text-xs sm:text-sm">
@@ -963,7 +957,7 @@ function renderPricingScreen() {
         <!-- 1 Year -->
         <div class="rounded-2xl border-2 border-sky-500 bg-slate-900/80 p-5 flex flex-col justify-between shadow-xl">
           <div>
-            <div class="text-sky-400 font-black text-xs uppercase tracking-wider">YEAR</div>
+            <div class="text-sky-400 font-black text-xs uppercase tracking-wider">${isArabic ? 'سنة' : '1 year'}</div>
             <div class="text-2xl sm:text-3xl font-black text-white mt-1">15000 دج <span class="text-xs font-semibold text-slate-400">/ 365 ${isArabic ? 'يوم' : 'Days'}</span></div>
             <div class="my-4 border-t border-slate-800"></div>
             <ul class="space-y-2 text-xs text-slate-300">
@@ -974,10 +968,6 @@ function renderPricingScreen() {
               <li class="flex items-start space-x-2 rtl:space-x-reverse">
                 <span class="text-emerald-400 font-bold">✓</span>
                 <span>إنشاء ملف خاص لجهازك بشكل مخصص</span>
-              </li>
-              <li class="flex items-start space-x-2 rtl:space-x-reverse">
-                <span class="text-emerald-400 font-bold">✓</span>
-                <span>إمكانية تغيير الكمبيوتر كل ساعة</span>
               </li>
             </ul>
           </div>
@@ -995,7 +985,6 @@ function renderPricingScreen() {
             <ul class="space-y-2 text-xs text-slate-300">
               <li class="flex items-start space-x-2 rtl:space-x-reverse"><span class="text-emerald-400 font-bold">✓</span><span>${isArabic ? 'دعم كامل طوال فترة الاشتراك' : 'Full support throughout the subscription'}</span></li>
               <li class="flex items-start space-x-2 rtl:space-x-reverse"><span class="text-emerald-400 font-bold">✓</span><span>${isArabic ? 'ملف مخصص لجهازك' : 'Custom profile for your device'}</span></li>
-              <li class="flex items-start space-x-2 rtl:space-x-reverse"><span class="text-emerald-400 font-bold">✓</span><span>${isArabic ? 'إمكانية تغيير الكمبيوتر كل ساعة' : 'Hourly PC switching'}</span></li>
             </ul>
           </div>
           <button onclick="startSubscription('TWO YEARS')" class="mt-6 w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl transition text-xs sm:text-sm shadow-lg shadow-sky-600/30">
@@ -1012,7 +1001,6 @@ function renderPricingScreen() {
             <ul class="space-y-2 text-xs text-slate-300">
               <li class="flex items-start space-x-2 rtl:space-x-reverse"><span class="text-emerald-400 font-bold">✓</span><span>${isArabic ? 'تفعيل دائم دون تاريخ انتهاء' : 'Permanent activation with no expiry'}</span></li>
               <li class="flex items-start space-x-2 rtl:space-x-reverse"><span class="text-emerald-400 font-bold">✓</span><span>${isArabic ? 'دعم كامل وملف مخصص لجهازك' : 'Full support and a custom device profile'}</span></li>
-              <li class="flex items-start space-x-2 rtl:space-x-reverse"><span class="text-emerald-400 font-bold">✓</span><span>${isArabic ? 'إمكانية تغيير الكمبيوتر كل ساعة' : 'Hourly PC switching'}</span></li>
             </ul>
           </div>
           <button onclick="startSubscription('LIFETIME')" class="mt-6 w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2.5 rounded-xl transition text-xs sm:text-sm">
@@ -1114,8 +1102,8 @@ function renderDashboardScreen() {
       ${currentUser.status !== 'ACTIVE' ? `
         <div class="rounded-2xl border border-sky-500/30 bg-slate-900/60 p-5 space-y-4">
           <div>
-            <h2 class="text-base font-black text-white">${isArabic ? 'تفعيل الحساب' : 'Activate Account'}</h2>
-            <p class="text-xs text-slate-400">${isArabic ? 'املاً الاستمارة واختر الحساب المناسب وارفع الوصل' : 'Fill details & upload receipt'}</p>
+            <h2 class="text-base font-black text-white">${isArabic ? 'استمارة الاشتراك' : 'Subscription Form'}</h2>
+            <p class="text-xs text-slate-400">${isArabic ? 'أكمل البيانات واختر الاشتراك المناسب وأرفق وصل الدفع' : 'Complete your details, choose a plan, and upload the payment receipt'}</p>
           </div>
 
           <form onsubmit="event.preventDefault(); handleActivationSubmit(this.beneficiary.value, this.fullName.value, this.phone.value, this.plan.value, this.receiptInputWrapper.dataset.filename);" class="space-y-3.5 text-xs">

@@ -36,7 +36,6 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Receipt
-import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Warning
@@ -294,39 +293,6 @@ fun UserDashboardScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Hardware switch counter
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        color = Sky500.copy(alpha = 0.1f)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.Sync, contentDescription = null, tint = Sky500, modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = if (isArabic) "إمكانية تغيير الكمبيوتر كل ساعة مفعّلة" else "Hourly HWID Reset Active",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = if (isArabic)
-                                        "يمكنك التبديل لجهاز جديد بعد: ${currentUser.hwidResetCountdownMinutes} دقيقة"
-                                    else
-                                        "You can switch to a new PC in ${currentUser.hwidResetCountdownMinutes} minutes",
-                                    fontSize = 10.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Button(
@@ -467,7 +433,7 @@ private fun ActivationFormSection(
                 Spacer(modifier = Modifier.width(10.dp))
                 Column {
                     Text(
-                        text = if (isArabic) "استمارة تفعيل الحساب" else "Account Activation Form",
+                        text = if (isArabic) "استمارة الاشتراك" else "Subscription Form",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -563,7 +529,7 @@ private fun ActivationFormSection(
                     modifier = Modifier.weight(1f)
                 )
                 PlanSelectOption(
-                    title = if (isArabic) "سنة كاملة (365 يوم)" else "1 Full Year",
+                    title = if (isArabic) "سنة (365 يوم)" else "1 year (365 days)",
                     price = "15000 دج",
                     isSelected = selectedPlan == "YEAR",
                     onClick = { selectedPlan = "YEAR" },

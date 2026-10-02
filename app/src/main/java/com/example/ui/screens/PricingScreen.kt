@@ -79,18 +79,16 @@ fun PricingScreen(
         // Plan 1: MONTHLY 6
         PricingPlanCard(
             planCode = "MONTHLY 6",
-            title = if (isArabic) "MONTHLY 6 (6 أشهر)" else "MONTHLY 6 (6 Months)",
+            title = if (isArabic) "6 أشهر" else "6 Months",
             price = "8000 دج",
             duration = if (isArabic) "180 يوم" else "180 Days",
             featuresAr = listOf(
                 "دعم كامل لكل مستخدم طوال فترة الاشتراك",
-                "إنشاء ملف خاص لجهازك بشكل مخصص",
-                "إمكانية تغيير الكمبيوتر كل ساعة إلى جهاز مختلف"
+                "إنشاء ملف خاص لجهازك بشكل مخصص"
             ),
             featuresEn = listOf(
                 "Full support for every user throughout the subscription period",
-                "Custom private profile setup for your device",
-                "Ability to change the computer every hour to a different device"
+                "Custom private profile setup for your device"
             ),
             isFeatured = false,
             onSelect = {
@@ -106,18 +104,16 @@ fun PricingScreen(
         // Plan 2: YEAR
         PricingPlanCard(
             planCode = "YEAR",
-            title = if (isArabic) "YEAR (سنة كاملة)" else "YEAR (Full Year)",
+            title = if (isArabic) "سنة" else "1 year",
             price = "15000 دج",
             duration = if (isArabic) "365 يوم" else "365 Days",
             featuresAr = listOf(
                 "دعم كامل لكل مستخدم طوال فترة الاشتراك",
-                "إنشاء ملف خاص لجهازك بشكل مخصص",
-                "إمكانية تغيير الكمبيوتر كل ساعة إلى جهاز مختلف"
+                "إنشاء ملف خاص لجهازك بشكل مخصص"
             ),
             featuresEn = listOf(
                 "Full support for every user throughout the subscription period",
-                "Custom private profile setup for your device",
-                "Ability to change the computer every hour to a different device"
+                "Custom private profile setup for your device"
             ),
             isFeatured = true,
             onSelect = {
